@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MealZip</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f8f9fa; }
+        .container { text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; }
+        .btn { background: #4285F4; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .btn:hover { background: #357ae8; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="login-box" class="container">
+        <h1>🍳 MealZip</h1>
+        <p>나만의 식단 관리</p>
+        <button onclick="handleLogin()" class="btn">구글 로그인</button>
+    </div>
+
+    <div id="app-box" class="container hidden">
+        <h2>환영합니다! 🎉</h2>
+        <p id="user-msg">로딩 중...</p>
+        <button onclick="handleLogout()" class="btn" style="background:#666;">로그아웃</button>
+        <hr style="margin: 20px 0;">
+        <p style="color: blue;">로그인 성공!</p>
+        <p>이제 기존 코드를 합치면 됩니다.</p>
+    </div>
+
+    <script>
+        // 1. 설정 (제공해주신 키 적용 완료)
+        const supabaseUrl = 'https://ztwlntjqqlhjabvdmrkr.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0d2xudGpxcWxoamFidmRtcmtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1Mjk2NzEsImV4cCI6MjA4NTEwNTY3MX0.EbGsBamR1G8UvRseq6Fc8ul-UHfR_jCPfVg267fF1wc';
+
+        // 2. 실행 (여기서 에러가 나면 안됨)
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // 3. 기능
+        async function handleLogin() {
+            await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: { queryParams: { access_type: 'offline', prompt: 'consent' } }
+            });
+        }
+
+        async function handleLogout() {
+            await supabase.auth.signOut();
+            location.reload();
+        }
+
+        supabase.auth.onAuthStateChange((event, session) => {
+            const loginBox = document.getElementById('login-box');
+            const appBox = document.getElementById('app-box');
+            if (session) {
+                loginBox.classList.add('hidden');
+                appBox.classList.remove('hidden');
+                document.getElementById('user-msg').innerText = session.user.email + "님";
+            } else {
+                loginBox.classList.remove('hidden');
+                appBox.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
