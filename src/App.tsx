@@ -1221,6 +1221,11 @@ const HomePage = () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  // [수정] 레시피가 하나도 없을 때를 대비한 안전 장치
+  const safeRecipes = recipes.length > 0 ? recipes : [];
+  const trendingRecipes = safeRecipes.slice(0, 5); // 앞에서 5개만 가져오기
+  const recommendedRecipes = safeRecipes.slice(0, 2); // 앞에서 2개만 가져오기
+
   const slides = [
     {
         id: 1,
@@ -1330,7 +1335,8 @@ const HomePage = () => {
              <span className="text-xs text-gray-400 font-medium cursor-pointer" onClick={() => navigate('/recipes')}>전체보기</span>
         </div>
         <div className="flex gap-4 overflow-x-auto no-scrollbar px-6 pb-4">
-            {recipes.slice(5, 10).map((recipe, i) => (
+            {trendingRecipes.length > 0 ? (
+                trendingRecipes.map((recipe, i) => (
                 <div key={i} className="min-w-[140px] group cursor-pointer" onClick={() => navigate('/recipes')}>
                     <div className="relative rounded-2xl overflow-hidden aspect-[4/5] shadow-sm mb-2">
                         <img src={recipe.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"/>
@@ -1341,7 +1347,12 @@ const HomePage = () => {
                     <div className="text-sm font-bold text-gray-800 line-clamp-1">{recipe.name}</div>
                     <div className="text-xs text-gray-400 line-clamp-1">{recipe.tags.join(', ')}</div>
                 </div>
-            ))}
+            ))
+            ) : (
+                <div className="w-full py-8 text-center text-gray-400 text-xs bg-gray-50 rounded-2xl">
+                    아직 등록된 레시피가 없어요 🍳
+                </div>
+            )}
         </div>
       </div>
 
@@ -1351,7 +1362,8 @@ const HomePage = () => {
             <Utensils size={18} className="text-brand" /> 오늘의 맞춤 식단
          </h3>
          <div className="flex flex-col gap-6">
-            {[recipes[11], recipes[14]].map((recipe, idx) => (
+            {recommendedRecipes.length > 0 ? (
+                recommendedRecipes.map((recipe, idx) => (
                 <div key={idx} className="flex gap-4 items-start cursor-pointer" onClick={() => navigate('/recipes')}>
                     <div className="w-28 h-28 rounded-2xl overflow-hidden shrink-0 shadow-sm relative">
                         <img src={recipe.image} className="w-full h-full object-cover" />
@@ -1372,7 +1384,12 @@ const HomePage = () => {
                         </p>
                     </div>
                 </div>
-            ))}
+            ))
+            ) : (
+                <div className="w-full py-8 text-center text-gray-400 text-xs bg-gray-50 rounded-2xl">
+                    레시피를 추가하면 추천해드릴게요! 🥗
+                </div>
+            )}
             <button onClick={() => navigate('/recipes')} className="w-full py-4 bg-gray-50 text-gray-500 text-sm font-bold rounded-2xl">
                 더 많은 레시피 보기
             </button>
