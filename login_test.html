@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>MealZip 로그인 테스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <h1>MealZip 구글 로그인</h1>
+    
+    <div id="login-area">
+        <button onclick="signInWithGoogle()">구글로 시작하기</button>
+    </div>
+
+    <div id="welcome-area" style="display:none;">
+        <p id="user-email"></p>
+        <button onclick="signOut()">로그아웃</button>
+        <hr/>
+        <h3>내 가족 정보 (데이터베이스 연동 확인)</h3>
+        <ul id="family-list"></ul>
+    </div>
+
+    <script>
+        // -------------------------------------------------------------
+        // 1. 여기에 아까 복사한 키를 넣어주세요!
+        // -------------------------------------------------------------
+        const supabaseUrl = 'https://ztwlntjqqlhjabvdmrkr.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0d2xudGpxcWxoamFidmRtcmtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1Mjk2NzEsImV4cCI6MjA4NTEwNTY3MX0.EbGsBamR1G8UvRseq6Fc8ul-UHfR_jCPfVg267fF1wc';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // 2. 구글 로그인 함수
+        async function signInWithGoogle() {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+            });
+            if (error) alert("로그인 에러: " + error.message);
+        }
+
+        // 3. 로그아웃 함수
+        async function signOut() {
+            const { error } = await supabase.auth.signOut();
+            if (error) alert("로그아웃 에러: " + error.message);
+            else window.location.reload(); // 새로고침
+        }
+
+        // 4. 로그인 상태 감지 및 화면 변경
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session) {
+                // 로그인이 된 상태
+                document.getElementById('login-area').style.display = 'none';
+                document.getElementById('welcome-area').style.display = 'block';
+                document.getElementById('user-email').innerText = 
+                    session.user.email + "님 환영합니다!";
+                
+                // 로그인된 김에 가족 데이터도 가져와 볼까요?
+                loadFamilyData();
+            } else {
+                // 로그아웃 된 상태
+                document.getElementById('login-area').style.display = 'block';
+                document.getElementById('welcome-area').style.display = 'none';
+            }
+        });
+
+        // 5. 가족 데이터 불러오기 (RLS 테스트)
+        async function loadFamilyData() {
+            const { data, error } = await supabase
+                .from('family_members')
+                .select('*');
+            
+            const list = document.getElementById('family-list');
+            list.innerHTML = ''; // 초기화
+
+            if (error) {
+                list.innerHTML = '<li>데이터 불러오기 실패: ' + error.message + '</li>';
+            } else if (data.length === 0) {
+                list.innerHTML = '<li>등록된 가족 구성원이 없습니다.</li>';
+            } else {
+                data.forEach(member => {
+                    list.innerHTML += `<li>${member.nickname} (${member.birth_year}년생)</li>`;
+                });
+            }
+        }
+    </script>
+</body>
+</html>
