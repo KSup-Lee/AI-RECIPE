@@ -1,7 +1,20 @@
 // --- 여기서부터 복사하세요 ---
 const DataProvider = ({ children }: { children?: ReactNode }) => {
   const { user } = useAuth();
-  const [recipes] = useState<Recipe[]>(DUMMY_RECIPES);
+  const [recipes, setRecipes] = useState<Recipe[]>([]); 
+
+  // [추가] 앱 켜지면 Supabase에서 레시피 목록 가져오기
+  useEffect(() => {
+    const fetchRecipes = async () => {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*');
+      
+      if (error) console.error('레시피 로딩 에러:', error);
+      else if (data) setRecipes(data as any);
+    };
+    fetchRecipes();
+  }, []);
   const [fridge, setFridge] = useState<Ingredient[]>([]); 
   const [members, setMembers] = useState<Member[]>(DUMMY_MEMBERS);
   const [mealPlans, setMealPlans] = useState<DailyMealPlan[]>([TODAY_MEAL]);
