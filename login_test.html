@@ -2,85 +2,118 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MealZip 로그인 테스트</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body {
+            font-family: 'Apple SD Gothic Neo', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 300px;
+        }
+        h1 { margin-bottom: 30px; color: #333; }
+        
+        /* 구글 로그인 버튼 디자인 */
+        .google-btn {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .google-btn:hover { background-color: #357ae8; }
+        
+        .hidden { display: none; }
+    </style>
 </head>
 <body>
 
-    <h1>MealZip 구글 로그인</h1>
-    
-    <div id="login-area">
-        <button onclick="signInWithGoogle()">구글로 시작하기</button>
+    <div id="login-view" class="login-card">
+        <h1>🍳 MealZip</h1>
+        <p>나만의 식단 관리, 시작해보세요</p>
+        <br>
+        <button onclick="handleLogin()" class="google-btn">
+            구글 계정으로 계속하기
+        </button>
     </div>
 
-    <div id="welcome-area" style="display:none;">
-        <p id="user-email"></p>
-        <button onclick="signOut()">로그아웃</button>
-        <hr/>
-        <h3>내 가족 정보 (데이터베이스 연동 확인)</h3>
-        <ul id="family-list"></ul>
+    <div id="welcome-view" class="login-card hidden">
+        <h1>환영합니다! 🎉</h1>
+        <p id="user-email" style="color: #666;"></p>
+        <br>
+        <button onclick="handleLogout()" style="padding: 10px 20px; cursor:pointer;">
+            로그아웃
+        </button>
     </div>
 
     <script>
-        // -------------------------------------------------------------
-        // 1. 여기에 아까 복사한 키를 넣어주세요!
-        // -------------------------------------------------------------
+        // ==========================================
+        // [설정] 여기에 복사한 키를 넣어주세요!
+        // ==========================================
         const supabaseUrl = 'https://ztwlntjqqlhjabvdmrkr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0d2xudGpxcWxoamFidmRtcmtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1Mjk2NzEsImV4cCI6MjA4NTEwNTY3MX0.EbGsBamR1G8UvRseq6Fc8ul-UHfR_jCPfVg267fF1wc';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        // 2. 구글 로그인 함수
-        async function signInWithGoogle() {
+        // 1. 로그인 함수
+        async function handleLogin() {
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
+                options: {
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    },
+                },
             });
-            if (error) alert("로그인 에러: " + error.message);
+            if (error) alert("오류 발생: " + error.message);
         }
 
-        // 3. 로그아웃 함수
-        async function signOut() {
+        // 2. 로그아웃 함수
+        async function handleLogout() {
             const { error } = await supabase.auth.signOut();
-            if (error) alert("로그아웃 에러: " + error.message);
-            else window.location.reload(); // 새로고침
+            if (error) alert("로그아웃 오류");
+            else window.location.reload();
         }
 
-        // 4. 로그인 상태 감지 및 화면 변경
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        // 3. 상태 감지 (화면 전환)
+        supabase.auth.onAuthStateChange((event, session) => {
+            const loginView = document.getElementById('login-view');
+            const welcomeView = document.getElementById('welcome-view');
+
             if (session) {
-                // 로그인이 된 상태
-                document.getElementById('login-area').style.display = 'none';
-                document.getElementById('welcome-area').style.display = 'block';
-                document.getElementById('user-email').innerText = 
-                    session.user.email + "님 환영합니다!";
-                
-                // 로그인된 김에 가족 데이터도 가져와 볼까요?
-                loadFamilyData();
+                // 로그인 된 상태 -> 환영 화면 보여주기
+                loginView.classList.add('hidden');
+                welcomeView.classList.remove('hidden');
+                document.getElementById('user-email').innerText = session.user.email;
+                console.log("로그인 정보:", session.user);
             } else {
-                // 로그아웃 된 상태
-                document.getElementById('login-area').style.display = 'block';
-                document.getElementById('welcome-area').style.display = 'none';
+                // 로그아웃 된 상태 -> 로그인 화면 보여주기
+                loginView.classList.remove('hidden');
+                welcomeView.classList.add('hidden');
             }
         });
-
-        // 5. 가족 데이터 불러오기 (RLS 테스트)
-        async function loadFamilyData() {
-            const { data, error } = await supabase
-                .from('family_members')
-                .select('*');
-            
-            const list = document.getElementById('family-list');
-            list.innerHTML = ''; // 초기화
-
-            if (error) {
-                list.innerHTML = '<li>데이터 불러오기 실패: ' + error.message + '</li>';
-            } else if (data.length === 0) {
-                list.innerHTML = '<li>등록된 가족 구성원이 없습니다.</li>';
-            } else {
-                data.forEach(member => {
-                    list.innerHTML += `<li>${member.nickname} (${member.birth_year}년생)</li>`;
-                });
-            }
-        }
     </script>
+
 </body>
 </html>
