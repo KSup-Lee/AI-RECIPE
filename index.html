@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
-        /* 기본 폰트 및 설정 */
         body {
             font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
             margin: 0;
@@ -16,13 +15,13 @@
             background-color: #f8f9fa;
         }
 
-        /* [로그인 화면] 스타일 */
+        /* 로그인 화면 스타일 */
         #login-view {
-            display: flex; /* 내용을 중앙 정렬 */
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh; /* 화면 전체 높이 사용 */
+            height: 100vh;
             text-align: center;
         }
         
@@ -49,17 +48,15 @@
         }
         .google-btn:hover { background-color: #357ae8; }
 
-        /* [메인 앱 화면] 스타일 */
+        /* 메인 앱 화면 스타일 */
         #main-view {
-            display: none; /* 기본적으로 숨김 (로그인하면 자바스크립트가 보여줌) */
-            max-width: 600px; /* 모바일 앱처럼 너비 제한 (원하면 제거 가능) */
+            display: none; /* 로그인 전에는 안 보임 */
+            max-width: 600px;
             margin: 0 auto;
             background-color: white;
             min-height: 100vh;
-            position: relative;
         }
 
-        /* 상단 네비게이션 예시 */
         .app-header {
             padding: 15px 20px;
             border-bottom: 1px solid #eee;
@@ -95,7 +92,6 @@
 
 
     <div id="main-view">
-        
         <header class="app-header">
             <h2 style="margin:0; font-size:18px;">MealZip</h2>
             <div>
@@ -105,55 +101,53 @@
         </header>
 
         <div style="padding: 20px;">
-            
             <h3>오늘의 식단</h3>
-            <p>로그인에 성공하셨군요! <br> 이제 여기에 기존 레시피 코드를 채워넣으세요.</p>
-            
+            <p>로그인에 성공했습니다! 🎉</p>
             <div style="background:#f0f0f0; padding:20px; border-radius:10px; margin-top:20px;">
                 <p>🥑 아보카도 샐러드</p>
                 <p>🥩 스테이크</p>
             </div>
-
-        </div>
-        </div>
+            </div>
+    </div>
 
 
     <script>
-        // 1. Supabase 설정 (아까 테스트했던 키를 입력하세요)
+        // 사용자님이 공유해주신 키를 미리 입력했습니다.
         const supabaseUrl = 'https://ztwlntjqqlhjabvdmrkr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0d2xudGpxcWxoamFidmRtcmtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1Mjk2NzEsImV4cCI6MjA4NTEwNTY3MX0.EbGsBamR1G8UvRseq6Fc8ul-UHfR_jCPfVg267fF1wc';
+        
+        // Supabase 연결 시작
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        // 2. 로그인 함수
+        // 로그인 함수
         async function handleLogin() {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: { queryParams: { access_type: 'offline', prompt: 'consent' } }
             });
-            if (error) alert("로그인 에러: " + error.message);
+            if (error) alert("로그인 실패: " + error.message);
         }
 
-        // 3. 로그아웃 함수
+        // 로그아웃 함수
         async function handleLogout() {
             const { error } = await supabase.auth.signOut();
-            if (error) alert("로그아웃 에러");
-            else location.reload(); // 새로고침
+            if (error) alert("로그아웃 실패");
+            else location.reload();
         }
 
-        // 4. 화면 전환 로직 (핵심)
+        // 화면 전환 로직
         supabase.auth.onAuthStateChange((event, session) => {
             const loginView = document.getElementById('login-view');
             const mainView = document.getElementById('main-view');
             const userEmail = document.getElementById('user-email');
 
             if (session) {
-                // 로그인 상태 -> 로그인창 숨기고, 메인앱 보여줌
+                // 로그인 됨 -> 메인 화면 보이기
                 loginView.style.display = 'none';
                 mainView.style.display = 'block';
-                // 상단에 이메일 표시 (선택사항)
                 if(userEmail) userEmail.innerText = session.user.email.split('@')[0] + '님';
             } else {
-                // 로그아웃 상태 -> 메인앱 숨기고, 로그인창 보여줌
+                // 로그아웃 됨 -> 로그인 화면 보이기
                 loginView.style.display = 'flex';
                 mainView.style.display = 'none';
             }
