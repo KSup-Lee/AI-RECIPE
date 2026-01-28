@@ -3,55 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MealZip - AI 식단 파트너</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Pretendard', 'sans-serif'],
-            },
-            colors: {
-              brand: '#3E6D5B', // Warm Forest Green
-              accent: '#E97A4A', // Soft Terracotta
-              background: '#F9F9F9', // Very Light Gray
-              beige: '#F2EDE4', // Soft Beige
-            },
-            borderRadius: {
-              '4xl': '2rem',
-            }
-          }
-        }
-      }
-    </script>
+    <title>MealZip - 나만의 식단 관리</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
-      body {
-        font-family: 'Pretendard', sans-serif;
-        background-color: #f0f0f0;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      .safe-top { padding-top: env(safe-area-inset-top); }
-      .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0"
-  }
-}
-</script>
+        /* 기본 폰트 및 설정 */
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
 
+        /* [로그인 화면] 스타일 */
+        #login-view {
+            display: flex; /* 내용을 중앙 정렬 */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* 화면 전체 높이 사용 */
+            text-align: center;
+        }
+        
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 320px;
+        }
+
+        .google-btn {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .google-btn:hover { background-color: #357ae8; }
+
+        /* [메인 앱 화면] 스타일 */
+        #main-view {
+            display: none; /* 기본적으로 숨김 (로그인하면 자바스크립트가 보여줌) */
+            max-width: 600px; /* 모바일 앱처럼 너비 제한 (원하면 제거 가능) */
+            margin: 0 auto;
+            background-color: white;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* 상단 네비게이션 예시 */
+        .app-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            position: sticky;
+            top: 0;
+        }
+
+        .logout-btn {
+            background-color: #eee;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
-    <div id="root"></div>
-<script type="module" src="/src/index.tsx"></script>
+
+    <div id="login-view">
+        <div class="login-card">
+            <h1 style="margin:0 0 10px;">🍳 MealZip</h1>
+            <p style="color:#666; margin:0;">나만의 식단 관리의 시작</p>
+            <button onclick="handleLogin()" class="google-btn">
+                구글 계정으로 시작하기
+            </button>
+        </div>
+    </div>
+
+
+    <div id="main-view">
+        
+        <header class="app-header">
+            <h2 style="margin:0; font-size:18px;">MealZip</h2>
+            <div>
+                <span id="user-email" style="font-size:12px; color:#888; margin-right:5px;"></span>
+                <button onclick="handleLogout()" class="logout-btn">로그아웃</button>
+            </div>
+        </header>
+
+        <div style="padding: 20px;">
+            
+            <h3>오늘의 식단</h3>
+            <p>로그인에 성공하셨군요! <br> 이제 여기에 기존 레시피 코드를 채워넣으세요.</p>
+            
+            <div style="background:#f0f0f0; padding:20px; border-radius:10px; margin-top:20px;">
+                <p>🥑 아보카도 샐러드</p>
+                <p>🥩 스테이크</p>
+            </div>
+
+        </div>
+        </div>
+
+
+    <script>
+        // 1. Supabase 설정 (아까 테스트했던 키를 입력하세요)
+        const supabaseUrl = '여기에_URL_붙여넣기';
+        const supabaseKey = '여기에_KEY_붙여넣기';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // 2. 로그인 함수
+        async function handleLogin() {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: { queryParams: { access_type: 'offline', prompt: 'consent' } }
+            });
+            if (error) alert("로그인 에러: " + error.message);
+        }
+
+        // 3. 로그아웃 함수
+        async function handleLogout() {
+            const { error } = await supabase.auth.signOut();
+            if (error) alert("로그아웃 에러");
+            else location.reload(); // 새로고침
+        }
+
+        // 4. 화면 전환 로직 (핵심)
+        supabase.auth.onAuthStateChange((event, session) => {
+            const loginView = document.getElementById('login-view');
+            const mainView = document.getElementById('main-view');
+            const userEmail = document.getElementById('user-email');
+
+            if (session) {
+                // 로그인 상태 -> 로그인창 숨기고, 메인앱 보여줌
+                loginView.style.display = 'none';
+                mainView.style.display = 'block';
+                // 상단에 이메일 표시 (선택사항)
+                if(userEmail) userEmail.innerText = session.user.email.split('@')[0] + '님';
+            } else {
+                // 로그아웃 상태 -> 메인앱 숨기고, 로그인창 보여줌
+                loginView.style.display = 'flex';
+                mainView.style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html>
