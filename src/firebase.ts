@@ -4,12 +4,13 @@ import { getFirestore } from "firebase/firestore"; // [추가] 데이터베이�
 
 const firebaseConfig = {
   // 🔴 Firebase 콘솔에서 복사한 본인의 키값들을 그대로 유지하세요!
-  apiKey: "AIzaSy...", 
-  authDomain: "mealzip-....firebaseapp.com",
-  projectId: "mealzip-...",
-  storageBucket: "mealzip-....appspot.com",
-  messagingSenderId: "...",
-  appId: "..."
+  apiKey: "AIzaSyCUaZnH5UAoOKg5_LfTkOxpgY4FCop1Zt4",
+  authDomain: "mealzip-eea8d.firebaseapp.com",
+  projectId: "mealzip-eea8d",
+  storageBucket: "mealzip-eea8d.firebasestorage.app",
+  messagingSenderId: "85862447499",
+  appId: "1:85862447499:web:404970f62b4b11807f578e",
+  measurementId: "G-78FZB6GG7Z"
 };
 
 const app = initializeApp(firebaseConfig);
