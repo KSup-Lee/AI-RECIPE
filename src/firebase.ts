@@ -1,8 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // [추가] 데이터베이스 기능
 
-// 🔴 중요: Firebase 콘솔 -> 프로젝트 설정(톱니바퀴) -> 아래로 스크롤 -> '내 앱'에서 'SDK 설정 및 구성' 복사해서 교체하세요!
 const firebaseConfig = {
+  // 🔴 Firebase 콘솔에서 복사한 본인의 키값들을 그대로 유지하세요!
   apiKey: "AIzaSy...", 
   authDomain: "mealzip-....firebaseapp.com",
   projectId: "mealzip-...",
@@ -13,4 +14,5 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const db = getFirestore(app); // [추가] DB 내보내기
 export const googleProvider = new GoogleAuthProvider();
