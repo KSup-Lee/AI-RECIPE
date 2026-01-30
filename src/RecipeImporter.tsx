@@ -23,7 +23,7 @@ const RecipeImporter = () => {
     try {
       while (true) {
         setProgress(`${startIdx} ~ ${endIdx}번 데이터 요청 중...`);
-        const response = await fetch(`http://openapi.foodsafetykorea.go.kr/api/${API_KEY}/COOKRCP01/json/${startIdx}/${endIdx}`);
+        const response = await fetch(`https://openapi.foodsafetykorea.go.kr/api/${API_KEY}/COOKRCP01/json/${startIdx}/${endIdx}`);
         const data = await response.json();
 
         if (!data.COOKRCP01 || !data.COOKRCP01.row) {
