@@ -248,15 +248,37 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   
   const cookRecipe = (recipe: Recipe) => {
     if (!user) return;
-    let deducted = 0;
-    fridge.forEach(item => {
-        const recipeIng = recipe.ingredients.find(ri => item.name.includes(ri.name) || ri.name.includes(item.name));
-        if (recipeIng && item.quantity > 0) {
-            deducted++;
-            updateIngredient(item.id, { quantity: Math.max(0, item.quantity - 1) });
+    let deductedCount = 0;
+    
+    fridge.forEach(fridgeItem => {
+        // 레시피 재료 이름이 냉장고 재료 이름에 포함되거나 그 반대인 경우 (예: '돼지고기' == '돼지고기 앞다리')
+        const recipeIng = recipe.ingredients.find(ri => fridgeItem.name.includes(ri.name) || ri.name.includes(fridgeItem.name));
+        
+        if (recipeIng) {
+            // 기준 정보 가져오기
+            const baseInfo = PREDEFINED_INGREDIENTS.find(p => p.name === fridgeItem.name);
+            if(baseInfo) {
+                // 단순화된 로직: 레시피에 단위가 없거나 '적당량'이면 1회 분량(예: 100g) 차감 가정
+                // 실제로는 레시피의 '75g' 텍스트 파싱이 필요하지만, 여기서는 개념 증명을 위해 
+                // '냉장고 재료의 20%를 사용했다'고 가정하고 차감합니다.
+                
+                // 예: 계란 10개 -> 2개 차감, 우유 1L -> 200ml 차감
+                const usageRatio = 0.2; 
+                const deductAmount = Math.max(1, Math.round(fridgeItem.quantity * usageRatio * 10) / 10);
+                
+                const newQuantity = Math.max(0, fridgeItem.quantity - deductAmount);
+                updateIngredient(fridgeItem.id, { quantity: newQuantity });
+                deductedCount++;
+            } else {
+                // 기준 정보 없으면 그냥 1개 차감
+                updateIngredient(fridgeItem.id, { quantity: Math.max(0, fridgeItem.quantity - 1) });
+                deductedCount++;
+            }
         }
     });
-    alert(deducted > 0 ? `재료 ${deducted}개를 냉장고에서 사용했습니다.` : '사용 가능한 재료가 없습니다.');
+    
+    if(deductedCount > 0) alert(`냉장고에서 ${deductedCount}개의 재료를 사용했습니다! 🍳`);
+    else alert('냉장고에 일치하는 재료가 없습니다.');
   };
 
   return (
@@ -455,9 +477,19 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
     }, [isOpen, initialData]);
 
     const handleSelectPredefined = (item: PredefinedIngredient) => {
-        const expiryDate = new Date(); expiryDate.setDate(expiryDate.getDate() + item.defaultExpiryDays);
-        setForm({ name: item.name, category: item.category, quantity: 1, unit: '개', storage: item.defaultStorage, expiryDate: expiryDate.toISOString().split('T')[0], image: item.icon });
-        setMode('DETAIL');
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + item.defaultExpiryDays);
+        
+        setForm({
+            name: item.name,
+            category: item.category,
+            quantity: 1,
+            unit: item.defaultUnit, // [수정] 기본 단위 자동 선택
+            storage: item.defaultStorage,
+            expiryDate: expiryDate.toISOString().split('T')[0],
+            image: item.icon
+        });
+        setMode('DETAIL'); 
     };
 
     const handleSave = () => {
