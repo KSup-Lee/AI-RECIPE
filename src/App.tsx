@@ -10,6 +10,7 @@ import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
 
+
 // [사용자 통계 데이터 타입]
 interface UserStats {
   points: number;
