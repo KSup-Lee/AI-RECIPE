@@ -164,3 +164,15 @@ export interface DefaultMealSettings {
     DINNER: string[];
   };
 }
+
+export interface PredefinedIngredient {
+  name: string;
+  category: IngredientCategory;
+  icon: string;
+  defaultStorage: 'FRIDGE' | 'FREEZER' | 'ROOM';
+  defaultExpiryDays: number;
+  // [추가] 단위 변환용 데이터
+  defaultUnit: string;        // 기본 단위 (예: '개', 'g')
+  baseGram: number;           // 1단위당 무게 (예: 감자 1개 = 150g, 고기 1g = 1g)
+  suggestedUnits: string[];   // 선택 가능한 단위 목록
+}
