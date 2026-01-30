@@ -256,7 +256,11 @@ const AuthPage = () => {
             <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">MealZip</h1>
             <p className="text-gray-400 mb-12">우리 가족 맞춤 식단 관리</p>
             <button onClick={() => login('google')} className="w-full bg-white border border-gray-200 text-gray-700 font-bold py-4 rounded-2xl shadow-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-3 relative">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
+                <img 
+  src="https://www.svgrepo.com/show/475656/google-color.svg" 
+  style={{ width: '20px', height: '20px', marginRight: '10px' }} 
+  alt="Google" 
+/>
                 구글 계정으로 시작하기
             </button>
         </div>
