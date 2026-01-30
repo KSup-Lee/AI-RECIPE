@@ -9,6 +9,169 @@ import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
+// 상단에 import가 없다면 추가해주세요!
+import { useState } from 'react';
+import { writeBatch, doc, collection } from 'firebase/firestore';
+import { db } from './firebase'; // 사용자님의 firebase 설정 파일 경로에 맞게 수정
+
+const RecipeImporter = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [progress, setProgress] = useState("대기 중...");
+
+  // 로그 남기기 함수
+  const addLog = (msg: string) => setLogs(prev => [msg, ...prev]);
+
+  const startAutoImport = async () => {
+    if (!confirm("🚨 경고: 데이터베이스에 레시피 대량 등록을 시작하시겠습니까? (중간에 창을 닫지 마세요)")) return;
+
+    setIsLoading(true);
+    let startIdx = 1;
+    let endIdx = 1000;
+    let totalSaved = 0;
+    const API_KEY = "71f28d5941fd4d63a514"; // 사용자님 키
+
+    try {
+      // 무한 반복 (데이터가 없을 때까지)
+      while (true) {
+        setProgress(`${startIdx}번 ~ ${endIdx}번 데이터 가져오는 중...`);
+        
+        // 1. API 호출
+        const response = await fetch(`http://openapi.foodsafetykorea.go.kr/api/${API_KEY}/COOKRCP01/json/${startIdx}/${endIdx}`);
+        const data = await response.json();
+
+        // 2. 종료 조건: 데이터가 없으면 멈춤
+        if (!data.COOKRCP01 || !data.COOKRCP01.row) {
+          addLog("✅ 더 이상 가져올 데이터가 없습니다. 모든 작업 완료!");
+          alert(`총 ${totalSaved}개의 레시피가 저장되었습니다! 고생하셨습니다.`);
+          break;
+        }
+
+        const recipes = data.COOKRCP01.row;
+        addLog(`📦 ${recipes.length}개 데이터 도착. DB 저장 시작...`);
+
+        // 3. Firestore에 저장 (500개씩 나누어 저장 - 배치 제한 때문)
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (const raw of recipes) {
+            // 재료 파싱 로직
+            const ingredientString = raw.RCP_PARTS_DTLS || "";
+            const ingredients = ingredientString.split(/,|\n/).map((s: string) => {
+                const parts = s.trim().split(' ');
+                const name = parts[0];
+                const amount = parts.slice(1).join(' ') || '적당량';
+                return { name, amount };
+            }).filter((i: any) => i.name.length > 0);
+
+            // 조리법 파싱 로직
+            const steps = [];
+            for (let i = 1; i <= 20; i++) {
+                const stepKey = `MANUAL${String(i).padStart(2, '0')}`;
+                const stepDesc = raw[stepKey];
+                if (stepDesc) steps.push(stepDesc.replace(/^\d+\.\s*/, ''));
+            }
+
+            // 카테고리 분류
+            let type = 'MAIN';
+            if (raw.RCP_PAT2 === '반찬') type = 'SIDE';
+            else if (raw.RCP_PAT2 === '국&찌개') type = 'SOUP';
+            else if (raw.RCP_PAT2 === '밥') type = 'RICE';
+            else if (raw.RCP_PAT2 === '후식') type = 'DESSERT';
+
+            // DB 저장용 데이터
+            const recipeRef = doc(collection(db, "recipes"));
+            batch.set(recipeRef, {
+                name: raw.RCP_NM,
+                image: raw.ATT_FILE_NO_MK || '',
+                description: `${raw.RCP_PAT2} - ${raw.RCP_WAY2}`,
+                category: 'KOREAN',
+                type: type,
+                tags: [raw.RCP_WAY2, raw.HASH_TAG].filter(Boolean),
+                cookingTime: 30,
+                difficulty: 'MEDIUM',
+                ingredients: ingredients,
+                steps: steps,
+                nutrition: {
+                    calories: Math.round(Number(raw.INFO_ENG)) || 0,
+                    carbs: Math.round(Number(raw.INFO_CAR)) || 0,
+                    protein: Math.round(Number(raw.INFO_PRO)) || 0,
+                    fat: Math.round(Number(raw.INFO_FAT)) || 0,
+                },
+                rating: 0,
+                reviews: [],
+                createdAt: new Date().toISOString(),
+                authorId: 'admin',
+                authorName: '식품안전나라',
+                originalId: raw.RCP_SEQ
+            });
+
+            batchCount++;
+
+            // 500개 찰 때마다 전송
+            if (batchCount === 500) {
+                await batch.commit();
+                batch = writeBatch(db);
+                batchCount = 0;
+            }
+        }
+
+        // 남은 자투리 데이터 전송
+        if (batchCount > 0) {
+            await batch.commit();
+        }
+
+        totalSaved += recipes.length;
+        addLog(`✨ 누적 ${totalSaved}개 저장 완료! 다음 페이지로 이동합니다...`);
+
+        // 다음 1000개를 위해 인덱스 증가
+        startIdx += 1000;
+        endIdx += 1000;
+
+        // 브라우저 멈춤 방지를 위해 1초 휴식
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+    } catch (e: any) {
+      console.error(e);
+      addLog(`❌ 에러 발생: ${e.message}`);
+      alert("작업 중 에러가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-0 right-0 m-4 p-6 bg-white border-2 border-blue-500 rounded-xl shadow-2xl z-50 w-96 max-h-[500px] overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-lg">⚡ 원클릭 레시피 가져오기</h3>
+            <button onClick={() => window.location.reload()} className="text-gray-400 hover:text-red-500 text-xs">닫기</button>
+        </div>
+        
+        <div className="text-center mb-4">
+            <div className="text-2xl font-bold text-blue-600 mb-1">{progress}</div>
+            <p className="text-xs text-gray-500">버튼만 누르면 끝까지 자동으로 진행됩니다.</p>
+        </div>
+
+        <div className="bg-gray-100 p-3 rounded-lg flex-1 overflow-y-auto mb-4 text-xs font-mono h-40">
+            {logs.length === 0 ? <span className="text-gray-400">대기 중...</span> : logs.map((l, i) => (
+                <div key={i} className="mb-1 border-b border-gray-200 pb-1">{l}</div>
+            ))}
+        </div>
+
+        <button 
+            onClick={startAutoImport} 
+            disabled={isLoading}
+            className={`w-full font-bold py-4 rounded-xl text-white transition-all ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-lg'}`}
+        >
+            {isLoading ? "데이터 수집 중... (창 닫지 마세요)" : "시작하기 (원클릭)"}
+        </button>
+    </div>
+  );
+};
+
+export default RecipeImporter;
+
 // [사용자 통계 데이터 타입]
 interface UserStats {
   points: number;
