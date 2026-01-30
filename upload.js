@@ -1,16 +1,22 @@
 import admin from "firebase-admin";
-import { createRequire } from "module";
-import path from "path";
-import fetch from "node-fetch"; // 혹시 fetch 에러가 나면 이 줄은 지우셔도 됩니다 (Node 18+부터는 내장됨)
+import fetch from "node-fetch"; 
 
-// ES Module에서 JSON 파일을 불러오기 위한 설정
-const require = createRequire(import.meta.url);
+// 1. 인증 키 직접 입력 (파일 읽기 생략)
+const serviceAccount = {
+  "type": "service_account",
+  "project_id": "mealzip-eea8d",
+  "private_key_id": "f3ef472c4b66602c47096a38f2a4fe385c79b653",
+  // 줄바꿈 문자(\n) 처리를 위해 그대로 입력
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCbMmoqoyZTdHoO\n6txe0j9QZ/qrCJLHtfbBmGnlhzSFSWTFa/ds/g3x1bFYSipxWQDc6HIUeqNDGIGs\n0hGaWZEaszU0Jq2TaF2VjwR6b+rDr5VwAMtoJG6qBmsom7Du59SvxJOdtax9vaIv\nIXpjfcF4I28y2473dErpWFm423L6zKhQhVt1kHqlzv1mfGYThKXH0rwjXr2CuPaK\ngRoNGGSoZ3OTQJNoO0SDZGD0ZaoJ8AZYOGzqEpFT2DxQFa7BxB++K4JlWpb7citk\nWV3HHmmah/c/EVwOwtkYfIw0TesH7Ket8pHPjvKmrieoJa9IDtdtgVTgrr5aB9VU\n4cmEBc39AgMBAAECggEAP2OIGYIp1Uxtzkn/WHtngN/3coQ973RTJR+roSRoP0iK\n8Ff453udFnnBxd4FF+bSg2gtsE+m/3CzBnOG3RRYQB+SS4rAusSV9NBFc/ziVqsQ\nzn6EljTLPocAncV5rxrhtCkGYhQiL/mUlMuHwbtLmlZexNcIvemx7z026Fo5zFXI\nVJXvBzaWr8yY7dhhBQHNwPLVfmO++PtKN0cXGnsUwA2F+t3XFCca/+cS9O6Xm8Ek\nf7E1vjLA+gvd+4FLvg3wXDaBNcCRctceQYBmFd1hRjql1+EWszJg001CBvS8GpgY\nmyc/+DqEMZvax6AUFYHoz1IKOO1DU+Vrl2tI5bThwQKBgQDI2AZjC724As3tREKJ\nsvo/O+HYxEZzgGc14SMTJteLS4Z4HMKtxJtTm7ctdmhcSbcfX3UEQ2pCXz8HOGfc\nzN/3Yf+8zwGl94quVfpbru/IQhTxebosucKphMWq3LNaNdCPi+a1GvXV7jJmry+q\noEXjvDdRFtMS8j0pfGYEAt1xEwKBgQDF0UNpXksNjgJbUaY1dXonegg9B1Ovfdw0\nKoCf5yaJiJ7SEU9cXMtoChX90iKFMpiwfTkHLxGX0qiV4fn0PS0po977LfjG5w4J\n511Ann/Ql/2x5H1z/xIM8MSZ152YyLxGKRYpOD8r6BJby0H011EAYZ2f6mEjNTY/\nietRqPa2rwKBgF5GoQDfIwf8MQOd1gni/HqwNjxVLajL7iapbphv1B+rrQw2m9+L\neUnOvzZU7XnclFvip///USKkqOZPwNkxRjROSQgst15bizp4W1OsExwSgNg0xoJ2\nE/0UuOCSRpIizqqDBiGe7SSlcf0nYJ2cLBJRaDnlF+E92h3eKdjaK24HAoGAK+J3\nzQlhJxmpBi8/6z4rolRdPYTBmP4X+u6u6Ep0bzCC42F5tKjVazhJlqymgdwuqYCu\nRRy5D3BpfA7Mz9U+jq1PC3Qwa5fYsnPEaVCAVHtTicKB3ljo3TwQsXx29u0Zb4sv\n4mcbBJeQcxLNiA64ZphBSrfJYvEsHr5vGQed6/sCgYB0/DgiKH/krKH0E5Sk1VLh\nr3Qvgc6gi6izG58BWjfFTvuc+AWnwZ0fxZdlb3GNUgelLEqPGMn+FpAkPlFogS/K\nrReScEk6QJ07+5zXsE3X+9g0qheenBb+1q5pFVnplYct9DkoxRzvS5Z3cfk7w9Je\ni+uUllxBKw0IJ1btg3Uq+A==\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@mealzip-eea8d.iam.gserviceaccount.com",
+  "client_id": "104596175603360936512",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40mealzip-eea8d.iam.gserviceaccount.com"
+};
 
-// 1. 키 파일 경로 설정 (현재 폴더에서 확실하게 찾기)
-const serviceAccountPath = path.join(process.cwd(), "serviceAccountKey.json");
-const serviceAccount = require(serviceAccountPath);
-
-console.log(`🔑 인증 키 로딩 성공: ${serviceAccount.project_id}`);
+console.log(`🔑 인증 키 로딩 완료: ${serviceAccount.project_id}`);
 
 // 2. 파이어베이스 접속
 admin.initializeApp({
@@ -34,26 +40,21 @@ async function uploadData() {
     console.log(`\n📥 데이터 다운로드 중... (${startIdx} ~ ${endIdx})`);
     
     try {
-      // API 호출
       const url = `http://openapi.foodsafetykorea.go.kr/api/${API_KEY}/${SERVICE_ID}/json/${startIdx}/${endIdx}`;
       const response = await fetch(url);
       const json = await response.json();
 
-      // 데이터가 없거나 에러면 종료
       if (!json[SERVICE_ID] || !json[SERVICE_ID].row) {
         console.log("✅ 더 이상 가져올 데이터가 없습니다. 종료합니다.");
         break;
       }
 
       const recipes = json[SERVICE_ID].row;
-      
-      // 한 번에 500개씩 저장 (Firestore 배치 제한)
       const BATCH_LIMIT = 500;
       let batch = db.batch();
       let batchCount = 0;
 
       for (const raw of recipes) {
-        // (1) 재료 정리
         const ingredientString = raw.RCP_PARTS_DTLS || "";
         const ingredients = ingredientString.split(/,|\n/).map((s) => {
             const parts = s.trim().split(' ');
@@ -62,7 +63,6 @@ async function uploadData() {
             return { name, amount };
         }).filter((i) => i.name.length > 0);
 
-        // (2) 조리 순서 정리
         const steps = [];
         for (let i = 1; i <= 20; i++) {
             const stepKey = `MANUAL${String(i).padStart(2, '0')}`;
@@ -70,15 +70,13 @@ async function uploadData() {
             if (stepDesc) steps.push(stepDesc.replace(/^\d+\.\s*/, '')); 
         }
 
-        // (3) 카테고리 매핑
         let type = 'MAIN';
         if (raw.RCP_PAT2 === '반찬') type = 'SIDE';
         else if (raw.RCP_PAT2 === '국&찌개') type = 'SOUP';
         else if (raw.RCP_PAT2 === '밥') type = 'RICE';
         else if (raw.RCP_PAT2 === '후식') type = 'DESSERT';
 
-        // (4) 저장할 데이터 객체 생성
-        const docRef = db.collection("recipes").doc(); // 새 문서 ID 자동 생성
+        const docRef = db.collection("recipes").doc();
         batch.set(docRef, {
             name: raw.RCP_NM,
             image: raw.ATT_FILE_NO_MK || '',
@@ -106,7 +104,6 @@ async function uploadData() {
 
         batchCount++;
 
-        // 500개가 차면 전송하고 배치를 비움
         if (batchCount === BATCH_LIMIT) {
             await batch.commit();
             console.log(`  - 500개 저장 완료...`);
@@ -115,7 +112,6 @@ async function uploadData() {
         }
       }
 
-      // 남은 데이터 저장
       if (batchCount > 0) {
         await batch.commit();
       }
@@ -123,7 +119,6 @@ async function uploadData() {
       totalCount += recipes.length;
       console.log(`✨ 누적 ${totalCount}개 저장 완료!`);
 
-      // 다음 페이지로 이동
       startIdx += 1000;
       endIdx += 1000;
 
@@ -134,5 +129,4 @@ async function uploadData() {
   }
 }
 
-// 실행
 uploadData();
