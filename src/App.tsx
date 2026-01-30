@@ -9,7 +9,8 @@ import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
-
+// 다른 import들 아래에 한 줄 추가
+import RecipeImporter from './RecipeImporter';
 
 // [사용자 통계 데이터 타입]
 interface UserStats {
@@ -1350,6 +1351,8 @@ const App = () => {
       <AuthProvider>
         <DataProvider>
           <AppRoutes />
+          <RecipeImporter />
+          
         </DataProvider>
       </AuthProvider>
     </HashRouter>
