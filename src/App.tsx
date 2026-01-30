@@ -9,6 +9,14 @@ import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
+// [추가] 사용자 통계 데이터 타입 정의
+interface UserStats {
+  points: number;
+  coupons: number;
+  reviews: number;
+  shipping: number;
+}
+
 // --- Contexts ---
 interface AuthContextType {
   user: User | null;
@@ -25,6 +33,7 @@ interface DataContextType {
   mealPlans: DailyMealPlan[];
   cart: CartItem[];
   posts: Post[];
+  userStats: UserStats; // [추가] 사용자 통계 정보
   searchQuery: string;
   defaultSettings: DefaultMealSettings;
   setSearchQuery: (query: string) => void;
@@ -115,6 +124,10 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [mealPlans, setMealPlans] = useState<DailyMealPlan[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [posts] = useState<Post[]>(DUMMY_POSTS);
+  
+  // [추가] 사용자 통계 상태 (기본값 0)
+  const [userStats, setUserStats] = useState<UserStats>({ points: 0, coupons: 0, reviews: 0, shipping: 0 });
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [defaultSettings, setDefaultSettings] = useState<DefaultMealSettings>({
     weekday: { BREAKFAST: [], LUNCH: [], DINNER: [] },
@@ -127,15 +140,17 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
         setFridge([]);
         setMembers([]);
         setMealPlans([]);
+        setUserStats({ points: 0, coupons: 0, reviews: 0, shipping: 0 });
         return;
     }
-    // 레시피 실시간 동기화
+
+    // 1. 레시피 실시간 동기화
     const recipesUnsub = onSnapshot(collection(db, 'recipes'), (snapshot) => {
         const loadedRecipes = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Recipe));
-        // DB에 레시피가 없으면 더미 데이터 유지, 있으면 DB 데이터 사용
         if (loadedRecipes.length > 0) setRecipes(loadedRecipes);
     });
 
+    // 2. 냉장고, 멤버, 식단 동기화 (하위 컬렉션)
     const fridgeUnsub = onSnapshot(collection(db, 'users', user.id, 'fridge'), (snapshot) => {
         setFridge(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ingredient)));
     });
@@ -147,7 +162,31 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
         if (newMeals.length === 0) setMealPlans([TODAY_MEAL]); 
         else setMealPlans(newMeals);
     });
-    return () => { fridgeUnsub(); membersUnsub(); mealsUnsub(); recipesUnsub(); };
+
+    // 3. [추가] 사용자 통계 정보 (포인트, 쿠폰 등) 동기화
+    // users 컬렉션의 내 문서(user.id)를 직접 구독합니다.
+    const userDocRef = doc(db, 'users', user.id);
+    const userStatsUnsub = onSnapshot(userDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            setUserStats({
+                points: data.points || 0,
+                coupons: data.coupons || 0,
+                reviews: data.reviews || 0,
+                shipping: data.shipping || 0
+            });
+        } else {
+            // 문서가 없으면(첫 로그인 등) 기본값으로 생성해줍니다. (웰컴 선물!)
+            setDoc(userDocRef, { 
+                points: 2000, // 웰컴 포인트
+                coupons: 5,   // 웰컴 쿠폰
+                reviews: 0, 
+                shipping: 0 
+            }, { merge: true });
+        }
+    });
+
+    return () => { fridgeUnsub(); membersUnsub(); mealsUnsub(); recipesUnsub(); userStatsUnsub(); };
   }, [user]);
 
   const addToCart = (product: any, quantity: number) => setCart(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), product, quantity }]);
@@ -233,7 +272,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   return (
-    <DataContext.Provider value={{ recipes, fridge, members, mealPlans, cart, posts, searchQuery, setSearchQuery, addToCart, removeFromCart, addIngredient, updateIngredient, deleteIngredient, addToMealPlan, removeFromMealPlan, openMealModal, closeMealModal, mealModalData, updateMealMembers, defaultSettings, saveDefaultSettings, cookRecipe, addMember, updateMember, deleteMember }}>
+    <DataContext.Provider value={{ recipes, fridge, members, mealPlans, cart, posts, userStats, searchQuery, setSearchQuery, addToCart, removeFromCart, addIngredient, updateIngredient, deleteIngredient, addToMealPlan, removeFromMealPlan, openMealModal, closeMealModal, mealModalData, updateMealMembers, defaultSettings, saveDefaultSettings, cookRecipe, addMember, updateMember, deleteMember }}>
       {children}
     </DataContext.Provider>
   );
@@ -241,8 +280,8 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
 
 // --- Helper Functions ---
 const uploadToCloudinary = async (file: File) => {
-  const cloudName = "duwpo6odp"; // 🔴 여기에 본인의 Cloud Name 입력
-  const uploadPreset = "mealzip_preset"; // 🔴 여기에 본인의 Upload Preset 입력
+  const cloudName = "YOUR_CLOUD_NAME"; // 🔴 여기에 본인의 Cloud Name 입력
+  const uploadPreset = "YOUR_UPLOAD_PRESET"; // 🔴 여기에 본인의 Upload Preset 입력
 
   const formData = new FormData();
   formData.append("file", file);
@@ -868,7 +907,7 @@ const HomePage = () => {
 
 const MyPage = () => {
     const { user, logout } = useAuth();
-    const { members } = useData();
+    const { members, userStats } = useData(); // [수정] userStats 가져오기
     const [view, setView] = useState<'MAIN' | 'MEMBERS'>('MAIN');
     const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<Member | undefined>(undefined);
@@ -907,9 +946,19 @@ const MyPage = () => {
                     <div className="flex-1"><h2 className="text-xl font-bold text-gray-900 leading-none mb-1">{user?.name}님</h2><div className="text-sm text-gray-400">내 정보 수정</div></div>
                     <button onClick={logout} className="text-xs font-medium text-gray-400 border border-gray-200 px-3 py-1.5 rounded-full">로그아웃</button>
                 </div>
+                {/* [수정] DB 연동 데이터 표시 */}
                 <div className="grid grid-cols-4 gap-2">
-                    {[ { label: '포인트', val: '2,500', icon: CreditCard }, { label: '쿠폰', val: '3장', icon: Receipt }, { label: '리뷰', val: '12', icon: MessageCircle }, { label: '주문배송', val: '1건', icon: Truck } ].map((item, i) => (
-                        <div key={i} className="flex flex-col items-center gap-1 cursor-pointer group"><div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-600 group-hover:bg-brand/10 group-hover:text-brand transition-colors"><item.icon size={20} strokeWidth={1.5} /></div><span className="text-[10px] text-gray-400 font-medium mb-0.5">{item.label}</span><span className="text-sm font-bold text-gray-900">{item.val}</span></div>
+                    {[ 
+                        { label: '포인트', val: userStats.points.toLocaleString(), icon: CreditCard }, 
+                        { label: '쿠폰', val: userStats.coupons + '장', icon: Receipt }, 
+                        { label: '리뷰', val: userStats.reviews, icon: MessageCircle }, 
+                        { label: '주문배송', val: userStats.shipping + '건', icon: Truck } 
+                    ].map((item, i) => (
+                        <div key={i} className="flex flex-col items-center gap-1 cursor-pointer group">
+                            <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-600 group-hover:bg-brand/10 group-hover:text-brand transition-colors"><item.icon size={20} strokeWidth={1.5} /></div>
+                            <span className="text-[10px] text-gray-400 font-medium mb-0.5">{item.label}</span>
+                            <span className="text-sm font-bold text-gray-900">{item.val}</span>
+                        </div>
                     ))}
                 </div>
             </div>
