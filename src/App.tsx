@@ -8,7 +8,8 @@ import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Po
 import { auth, googleProvider, db } from './firebase'; 
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
-
+// 기존 import들 아래에 추가하세요
+import Navigation from './components/Navigation';
 
 // [사용자 통계 데이터 타입]
 interface UserStats {
@@ -1349,6 +1350,7 @@ const App = () => {
       <AuthProvider>
         <DataProvider>
           <AppRoutes />
+          <Navigation />
         </DataProvider>
       </AuthProvider>
     </HashRouter>
