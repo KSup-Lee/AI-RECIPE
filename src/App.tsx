@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Search, Bell, ShoppingCart, Home, Users, Calendar, Refrigerator, ChefHat, LogOut, ChevronLeft, ChevronRight, Plus, AlertTriangle, Bookmark, Settings, User as UserIcon, Heart, ShoppingBag, Utensils, Zap, Sparkles, X, Clock, Flame, Share2, MoreHorizontal, CheckCircle, CalendarPlus, TrendingUp, AlertCircle, Minus, Bot, Moon, Leaf, Search as SearchIcon, Trash2, Edit2, Star, Send, Receipt, CreditCard, HelpCircle, Truck, Package, MessageCircle } from 'lucide-react';
+import { Menu, Search, Bell, ShoppingCart, Home, Users, Calendar, Refrigerator, ChefHat, LogOut, ChevronLeft, ChevronRight, Plus, AlertTriangle, Bookmark, Settings, User as UserIcon, Heart, ShoppingBag, Utensils, Zap, Sparkles, X, Clock, Flame, Share2, MoreHorizontal, CheckCircle, CalendarPlus, TrendingUp, AlertCircle, Minus, Bot, Moon, Leaf, Search as SearchIcon, Trash2, Edit2, Star, Send, Receipt, CreditCard, HelpCircle, Truck, Package, MessageCircle, Camera } from 'lucide-react';
 import { DUMMY_RECIPES, DUMMY_POSTS, DUMMY_PRODUCTS, CATEGORIES, INGREDIENT_UNITS, ALLERGY_TAGS, DISEASE_TAGS, TODAY_MEAL, PREDEFINED_INGREDIENTS } from './constants';
 import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Post, DefaultMealSettings, IngredientCategory, PredefinedIngredient, MealPlanItem } from './types';
 
@@ -109,7 +109,7 @@ const AuthProvider = ({ children }: { children?: ReactNode }) => {
 // --- DataProvider (Firebase DB) ---
 const DataProvider = ({ children }: { children?: ReactNode }) => {
   const { user } = useAuth();
-  const [recipes] = useState<Recipe[]>(DUMMY_RECIPES);
+  const [recipes, setRecipes] = useState<Recipe[]>(DUMMY_RECIPES);
   const [fridge, setFridge] = useState<Ingredient[]>([]); 
   const [members, setMembers] = useState<Member[]>([]);
   const [mealPlans, setMealPlans] = useState<DailyMealPlan[]>([]);
@@ -129,6 +129,13 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
         setMealPlans([]);
         return;
     }
+    // 레시피 실시간 동기화
+    const recipesUnsub = onSnapshot(collection(db, 'recipes'), (snapshot) => {
+        const loadedRecipes = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Recipe));
+        // DB에 레시피가 없으면 더미 데이터 유지, 있으면 DB 데이터 사용
+        if (loadedRecipes.length > 0) setRecipes(loadedRecipes);
+    });
+
     const fridgeUnsub = onSnapshot(collection(db, 'users', user.id, 'fridge'), (snapshot) => {
         setFridge(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ingredient)));
     });
@@ -140,7 +147,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
         if (newMeals.length === 0) setMealPlans([TODAY_MEAL]); 
         else setMealPlans(newMeals);
     });
-    return () => { fridgeUnsub(); membersUnsub(); mealsUnsub(); };
+    return () => { fridgeUnsub(); membersUnsub(); mealsUnsub(); recipesUnsub(); };
   }, [user]);
 
   const addToCart = (product: any, quantity: number) => setCart(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), product, quantity }]);
@@ -232,6 +239,30 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   );
 };
 
+// --- Helper Functions ---
+const uploadToCloudinary = async (file: File) => {
+  const cloudName = "duwpo6odp"; // 🔴 여기에 본인의 Cloud Name 입력
+  const uploadPreset = "mealzip_preset"; // 🔴 여기에 본인의 Upload Preset 입력
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+
+  try {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.secure_url;
+  } catch (error) {
+    console.error("이미지 업로드 실패:", error);
+    alert("이미지 업로드에 실패했습니다. 설정을 확인해주세요.");
+    return null;
+  }
+};
+
 // --- Helper Components ---
 const MealZipLogo = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -264,7 +295,7 @@ const AuthPage = () => {
   );
 };
 
-// ... (Overlay, Modals 복구) ...
+// ... (Overlay, Modals) ...
 const GlobalSearchOverlay = () => {
     const { searchQuery, recipes, fridge, posts, setSearchQuery } = useData();
     const navigate = useNavigate();
@@ -583,6 +614,123 @@ const MemberEditorModal = ({ isOpen, onClose, member }: { isOpen: boolean, onClo
     );
 };
 
+// [레시피 작성 모달]
+const RecipeWriteModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const { user } = useAuth();
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const [ingredientsText, setIngredientsText] = useState(""); 
+  const [stepsText, setStepsText] = useState(""); 
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setPreview(URL.createObjectURL(selectedFile));
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!user) return alert("로그인이 필요합니다.");
+    if (!name || !file || !ingredientsText || !stepsText) return alert("모든 정보를 입력해주세요.");
+
+    setIsUploading(true);
+
+    // 1. 이미지 업로드
+    const imageUrl = await uploadToCloudinary(file);
+    if (!imageUrl) {
+      setIsUploading(false);
+      return;
+    }
+
+    // 2. DB 저장
+    try {
+        await addDoc(collection(db, "recipes"), {
+            name: name,
+            image: imageUrl,
+            description: desc,
+            ingredients: ingredientsText.split(',').map(i => ({ name: i.trim(), amount: '적당량' })),
+            steps: stepsText.split('\n'),
+            category: 'KOREAN',
+            type: 'MAIN',
+            cookingTime: 30,
+            difficulty: 'MEDIUM',
+            rating: 0,
+            reviews: [],
+            relatedProducts: [],
+            tags: [],
+            authorId: user.id,
+            authorName: user.name,
+            createdAt: new Date().toISOString()
+        });
+        alert("레시피가 등록되었습니다! 🎉");
+        onClose();
+        // 초기화
+        setName(""); setDesc(""); setFile(null); setPreview(""); setIngredientsText(""); setStepsText("");
+    } catch (e) {
+        console.error("DB 저장 실패:", e);
+        alert("저장 중 오류가 발생했습니다.");
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-5">
+      <div className="bg-white w-full max-w-md rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-xl">새 레시피 등록</h3>
+            <button onClick={onClose}><X size={24} /></button>
+        </div>
+
+        <div className="space-y-4">
+            <div className="w-full aspect-video bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden relative cursor-pointer border-2 border-dashed border-gray-300 hover:border-brand hover:bg-green-50 transition-colors">
+                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                {preview ? (
+                    <img src={preview} className="w-full h-full object-cover" />
+                ) : (
+                    <div className="flex flex-col items-center text-gray-400">
+                        <Camera size={32} />
+                        <span className="text-xs font-bold mt-1">사진을 등록해주세요</span>
+                    </div>
+                )}
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">요리 이름</label>
+                <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3 font-bold" placeholder="예: 김치찌개" />
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">한줄 소개</label>
+                <input value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3" placeholder="예: 칼칼하고 시원한 맛!" />
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">재료 (쉼표로 구분)</label>
+                <input value={ingredientsText} onChange={e => setIngredientsText(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3" placeholder="예: 김치, 돼지고기, 두부, 파" />
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">조리 순서 (엔터로 구분)</label>
+                <textarea value={stepsText} onChange={e => setStepsText(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3 h-24 resize-none" placeholder="1. 고기를 볶는다&#13;&#10;2. 물을 붓는다..." />
+            </div>
+            
+            <button onClick={handleSubmit} disabled={isUploading} className="w-full bg-brand text-white font-bold py-4 rounded-2xl shadow-lg mt-2 disabled:bg-gray-400">
+                {isUploading ? "업로드 중..." : "레시피 등록 완료"}
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const GlobalLayout = ({ children }: { children?: ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -656,7 +804,7 @@ const GlobalLayout = ({ children }: { children?: ReactNode }) => {
   );
 };
 
-// --- Pages (Rich Version 복구) ---
+// --- Pages ---
 const HomePage = () => {
   const { recipes } = useData();
   const navigate = useNavigate();
@@ -774,11 +922,163 @@ const MyPage = () => {
     );
 };
 
-// ... (MealPlanPage, FridgePage, RecipePage, ShoppingPage, CommunityPage 등 기존 페이지 유지)
-// 코드가 너무 길어지므로 생략된 부분은 기존 코드를 그대로 유지하세요. 
-// 아래 AppRoutes와 App만 교체하세요.
+const MealPlanPage = () => {
+  const { mealPlans, updateMealMembers, members, removeFromMealPlan } = useData();
+  const navigate = useNavigate();
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-const MealPlanPage = () => <div className="p-5">식단 페이지 (내용 복구 필요)</div>;
+  const weekDates = [];
+  const startDay = new Date(selectedDate);
+  startDay.setDate(startDay.getDate() - 3);
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startDay);
+    d.setDate(startDay.getDate() + i);
+    weekDates.push(d.toISOString().split('T')[0]);
+  }
+
+  const currentPlan = mealPlans.find(p => p.date === selectedDate) || {
+    date: selectedDate,
+    meals: { BREAKFAST: [], LUNCH: [], DINNER: [] }
+  };
+
+  const calculateTotal = (nutrient: keyof import('./types').Nutrition) => {
+    let total = 0;
+    ['BREAKFAST', 'LUNCH', 'DINNER'].forEach((type) => {
+      (currentPlan.meals as any)[type].forEach((item: MealPlanItem) => {
+        const count = item.memberIds.length;
+        total += item.recipe.nutrition[nutrient] * count;
+      });
+    });
+    return Math.round(total);
+  };
+
+  const totalCalories = calculateTotal('calories');
+  const totalCarbs = calculateTotal('carbs');
+  const totalProtein = calculateTotal('protein');
+  const totalFat = calculateTotal('fat');
+
+  const MealSection = ({ type, title, items }: { type: 'BREAKFAST'|'LUNCH'|'DINNER', title: string, items: MealPlanItem[] }) => (
+    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">{title}</h3>
+        <button onClick={() => navigate('/recipes')} className="text-gray-400 hover:text-brand transition-colors"><Plus size={20}/></button>
+      </div>
+      
+      {items.length > 0 ? (
+        <div className="space-y-6">
+           {items.map((item, idx) => (
+             <div key={idx} className="relative">
+                 <div className="flex gap-4 items-start mb-3">
+                    <img src={item.recipe.image} className="w-14 h-14 rounded-2xl object-cover bg-gray-50 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                        <div className="font-bold text-gray-800 text-sm truncate pr-6">{item.recipe.name}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{item.recipe.nutrition.calories}kcal (1인)</div>
+                    </div>
+                    <button 
+                        onClick={() => removeFromMealPlan(selectedDate, type, item.recipe.id)}
+                        className="text-gray-300 hover:text-red-500"
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                 </div>
+                 
+                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                     {members.map(member => {
+                         const isEating = item.memberIds.includes(member.id);
+                         return (
+                             <button 
+                                key={member.id}
+                                onClick={() => updateMealMembers(selectedDate, type, item.recipe.id, member.id)}
+                                className={`flex flex-col items-center gap-1 transition-all ${isEating ? 'opacity-100 scale-100' : 'opacity-40 scale-90 grayscale'}`}
+                             >
+                                 <div className={`w-8 h-8 rounded-full ${member.avatarColor} text-white flex items-center justify-center text-xs font-bold border-2 ${isEating ? 'border-brand' : 'border-transparent'}`}>
+                                     {member.name.charAt(0)}
+                                 </div>
+                                 <span className="text-[9px] font-bold text-gray-600">{member.name}</span>
+                             </button>
+                         );
+                     })}
+                 </div>
+             </div>
+           ))}
+        </div>
+      ) : (
+        <div className="py-6 text-center text-gray-400 text-xs border-2 border-dashed border-gray-100 rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => navigate('/recipes')}>
+            <Plus size={20} className="mx-auto mb-2 opacity-50"/>
+            식단 추가하기
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="p-5 pb-20 space-y-6 bg-gray-50/50 min-h-full">
+        <div className="flex items-center gap-2">
+            <div className="relative">
+                <input 
+                    type="date" 
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                <button className="w-12 h-16 rounded-2xl bg-gray-900 text-white flex items-center justify-center shadow-lg">
+                    <Calendar size={20} />
+                </button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 flex-1">
+                {weekDates.map(date => {
+                    const isSelected = date === selectedDate;
+                    const d = new Date(date);
+                    return (
+                        <button 
+                            key={date} 
+                            onClick={() => setSelectedDate(date)}
+                            className={`flex flex-col items-center justify-center min-w-[3.5rem] h-16 rounded-2xl transition-all ${isSelected ? 'bg-brand text-white shadow-lg shadow-brand/30 scale-105' : 'bg-white text-gray-400 border border-gray-100'}`}
+                        >
+                            <span className="text-[10px] font-medium">{['일','월','화','수','목','금','토'][d.getDay()]}</span>
+                            <span className="text-lg font-bold">{d.getDate()}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+            <div className="flex justify-between items-end mb-4">
+                <div>
+                    <h2 className="text-gray-900 font-bold text-lg">오늘의 영양 섭취</h2>
+                    <p className="text-xs text-gray-400">참여 가족 합산 섭취량</p>
+                </div>
+                <div className="text-right">
+                    <span className="text-3xl font-black text-brand">{totalCalories}</span>
+                    <span className="text-xs text-gray-400 font-bold ml-1">kcal</span>
+                </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+                {[
+                    { label: '탄수화물', val: totalCarbs, color: 'bg-orange-400' },
+                    { label: '단백질', val: totalProtein, color: 'bg-brand' },
+                    { label: '지방', val: totalFat, color: 'bg-yellow-400' }
+                ].map((nut, i) => (
+                    <div key={i} className="bg-gray-50 rounded-2xl p-3 text-center">
+                        <div className="text-[10px] text-gray-500 mb-1">{nut.label}</div>
+                        <div className="text-sm font-bold text-gray-900 mb-2">{nut.val}g</div>
+                        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div className={`h-full ${nut.color}`} style={{ width: '60%' }}></div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+
+        <MealSection type="BREAKFAST" title="🌅 아침" items={currentPlan.meals.BREAKFAST} />
+        <MealSection type="LUNCH" title="☀️ 점심" items={currentPlan.meals.LUNCH} />
+        <MealSection type="DINNER" title="🌙 저녁" items={currentPlan.meals.DINNER} />
+    </div>
+  );
+};
+
 const FridgePage = () => {
     const { fridge, deleteIngredient } = useData();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -928,301 +1228,6 @@ const FridgePage = () => {
     );
 };
 
-// [Cloudinary] 이미지 업로드 함수
-const uploadToCloudinary = async (file: File) => {
-  const cloudName = "본인의_cloud_name"; // 🔴 아까 복사한 Cloud Name을 여기에 넣으세요!
-  const uploadPreset = "본인의_upload_preset"; // 🔴 아까 복사한 Upload preset 이름을 여기에 넣으세요!
-
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
-
-  try {
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    return data.secure_url; // 업로드된 이미지 주소 반환
-  } catch (error) {
-    console.error("이미지 업로드 실패:", error);
-    alert("이미지 업로드에 실패했습니다 ㅠㅠ");
-    return null;
-  }
-};
-
-const RecipeWriteModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-  const { user } = useAuth();
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  
-  // 간단한 입력을 위해 재료/순서는 텍스트로 받을게요 (나중에 고도화 가능)
-  const [ingredientsText, setIngredientsText] = useState(""); 
-  const [stepsText, setStepsText] = useState(""); 
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!user) return alert("로그인이 필요합니다.");
-    if (!name || !file || !ingredientsText || !stepsText) return alert("모든 정보를 입력해주세요.");
-
-    setIsUploading(true);
-
-    // 1. 이미지 먼저 클라우디너리에 올리기
-    const imageUrl = await uploadToCloudinary(file);
-    if (!imageUrl) {
-      setIsUploading(false);
-      return;
-    }
-
-    // 2. 파이어베이스 DB에 레시피 저장
-    try {
-        await addDoc(collection(db, "recipes"), {
-            name: name,
-            image: imageUrl, // 클라우디너리 이미지 주소
-            description: desc,
-            ingredients: ingredientsText.split(',').map(i => ({ name: i.trim(), amount: '적당량' })), // 쉼표로 구분
-            steps: stepsText.split('\n'), // 엔터로 구분
-            category: 'KOREAN', // 기본값
-            type: 'MAIN', // 기본값
-            cookingTime: 30, // 기본값
-            difficulty: 'MEDIUM', // 기본값
-            rating: 0,
-            reviews: [],
-            relatedProducts: [],
-            tags: [],
-            authorId: user.id,
-            authorName: user.name,
-            createdAt: new Date().toISOString()
-        });
-        alert("레시피가 등록되었습니다! 🎉");
-        onClose();
-    } catch (e) {
-        console.error("DB 저장 실패:", e);
-        alert("저장 중 오류가 발생했습니다.");
-    } finally {
-        setIsUploading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-5">
-      <div className="bg-white w-full max-w-md rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-        <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-xl">새 레시피 등록</h3>
-            <button onClick={onClose}><X size={24} /></button>
-        </div>
-
-        <div className="space-y-4">
-            {/* 이미지 업로드 */}
-            <div className="w-full aspect-video bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden relative cursor-pointer border-2 border-dashed border-gray-300 hover:border-brand hover:bg-green-50 transition-colors">
-                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                {preview ? (
-                    <img src={preview} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="flex flex-col items-center text-gray-400">
-                        <Camera size={32} />
-                        <span className="text-xs font-bold mt-1">사진을 등록해주세요</span>
-                    </div>
-                )}
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">요리 이름</label>
-                <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3 font-bold" placeholder="예: 김치찌개" />
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">한줄 소개</label>
-                <input value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3" placeholder="예: 칼칼하고 시원한 맛!" />
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">재료 (쉼표로 구분)</label>
-                <input value={ingredientsText} onChange={e => setIngredientsText(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3" placeholder="예: 김치, 돼지고기, 두부, 파" />
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">조리 순서 (엔터로 구분)</label>
-                <textarea value={stepsText} onChange={e => setStepsText(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3 h-24 resize-none" placeholder="1. 고기를 볶는다&#13;&#10;2. 물을 붓는다..." />
-            </div>
-            
-            <button 
-                onClick={handleSubmit} 
-                disabled={isUploading}
-                className="w-full bg-brand text-white font-bold py-4 rounded-2xl shadow-lg mt-2 disabled:bg-gray-400"
-            >
-                {isUploading ? "업로드 중..." : "레시피 등록 완료"}
-            </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-import { addDoc, collection } from "firebase/firestore"; // 상단 import에 없다면 추가해주세요!
-import { db } from "./firebase"; // firebase 설정 파일 경로가 맞는지 확인해주세요!
-
-// [0] 필요한 import 확인 (파일 맨 위에 없으면 추가해주세요)
-// import { addDoc, collection } from "firebase/firestore";
-// import { db } from "./firebase";
-
-// [1] 클라우디너리 업로드 함수 (컴포넌트 밖에 둡니다)
-const uploadToCloudinary = async (file: File) => {
-  const cloudName = "duwpo6odp"; // 🔴 본인의 Cloud Name으로 바꿔주세요!
-  const uploadPreset = "mealzip_preset"; // 🔴 본인의 Upload Preset으로 바꿔주세요!
-
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
-
-  try {
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    return data.secure_url;
-  } catch (error) {
-    console.error("이미지 업로드 실패:", error);
-    alert("이미지 업로드에 실패했습니다.");
-    return null;
-  }
-};
-
-// [2] 레시피 작성 모달 컴포넌트
-const RecipeWriteModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-  const { user } = useAuth();
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  
-  const [ingredientsText, setIngredientsText] = useState(""); 
-  const [stepsText, setStepsText] = useState(""); 
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!user) return alert("로그인이 필요합니다.");
-    if (!name || !file || !ingredientsText || !stepsText) return alert("모든 정보를 입력해주세요.");
-
-    setIsUploading(true);
-
-    // 1. 이미지 업로드
-    const imageUrl = await uploadToCloudinary(file);
-    if (!imageUrl) {
-      setIsUploading(false);
-      return;
-    }
-
-    // 2. DB 저장
-    try {
-        await addDoc(collection(db, "recipes"), {
-            name: name,
-            image: imageUrl,
-            description: desc,
-            ingredients: ingredientsText.split(',').map(i => ({ name: i.trim(), amount: '적당량' })),
-            steps: stepsText.split('\n'),
-            category: 'KOREAN',
-            type: 'MAIN',
-            cookingTime: 30,
-            difficulty: 'MEDIUM',
-            rating: 0,
-            reviews: [],
-            relatedProducts: [],
-            tags: [],
-            authorId: user.id,
-            authorName: user.name,
-            createdAt: new Date().toISOString()
-        });
-        alert("레시피가 등록되었습니다! 🎉");
-        onClose();
-        // 입력창 초기화
-        setName(""); setDesc(""); setFile(null); setPreview(""); setIngredientsText(""); setStepsText("");
-    } catch (e) {
-        console.error("DB 저장 실패:", e);
-        alert("저장 중 오류가 발생했습니다.");
-    } finally {
-        setIsUploading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-5">
-      <div className="bg-white w-full max-w-md rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-        <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-xl">새 레시피 등록</h3>
-            <button onClick={onClose}><X size={24} /></button>
-        </div>
-
-        <div className="space-y-4">
-            <div className="w-full aspect-video bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden relative cursor-pointer border-2 border-dashed border-gray-300 hover:border-brand hover:bg-green-50 transition-colors">
-                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                {preview ? (
-                    <img src={preview} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="flex flex-col items-center text-gray-400">
-                        <Edit2 size={32} />
-                        <span className="text-xs font-bold mt-1">사진을 등록해주세요</span>
-                    </div>
-                )}
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">요리 이름</label>
-                <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3 font-bold" placeholder="예: 김치찌개" />
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">한줄 소개</label>
-                <input value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3" placeholder="예: 칼칼하고 시원한 맛!" />
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">재료 (쉼표로 구분)</label>
-                <input value={ingredientsText} onChange={e => setIngredientsText(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3" placeholder="예: 김치, 돼지고기, 두부, 파" />
-            </div>
-
-            <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">조리 순서 (엔터로 구분)</label>
-                <textarea value={stepsText} onChange={e => setStepsText(e.target.value)} className="w-full bg-gray-50 rounded-xl p-3 h-24 resize-none" placeholder="1. 고기를 볶는다&#13;&#10;2. 물을 붓는다..." />
-            </div>
-            
-            <button 
-                onClick={handleSubmit} 
-                disabled={isUploading}
-                className="w-full bg-brand text-white font-bold py-4 rounded-2xl shadow-lg mt-2 disabled:bg-gray-400"
-            >
-                {isUploading ? "업로드 중..." : "레시피 등록 완료"}
-            </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// [3] RecipePage 컴포넌트 전문
 const RecipePage = () => {
     const { recipes, openMealModal, addToCart, fridge, cookRecipe } = useData();
     const [filter, setFilter] = useState<'ALL' | 'MATCH' | 'EXPIRING' | 'LATE_NIGHT' | 'HEALTHY'>('ALL');
@@ -1448,8 +1453,86 @@ const RecipePage = () => {
         </div>
     );
 };
-const ShoppingPage = () => <div className="p-5">장보기 페이지 (내용 복구 필요)</div>;
-const CommunityPage = () => <div className="p-5">커뮤니티 페이지 (내용 복구 필요)</div>;
+
+const ShoppingPage = () => {
+    const { cart, addToCart } = useData();
+    const products = DUMMY_PRODUCTS;
+
+    return (
+        <div className="p-5 pb-20">
+            <div className="bg-gray-900 text-white rounded-3xl p-6 mb-8 relative overflow-hidden">
+                <div className="relative z-10 flex justify-between items-center">
+                    <div>
+                        <div className="text-gray-400 text-xs font-bold mb-1">장바구니 합계</div>
+                        <div className="text-2xl font-bold">{cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0).toLocaleString()}원</div>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                        <ShoppingBag size={24} />
+                    </div>
+                </div>
+            </div>
+
+            <h3 className="font-bold text-gray-900 text-lg mb-4">추천 상품</h3>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+                {products.map(p => (
+                    <div key={p.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group">
+                        <div className="relative">
+                            <img src={p.image} className="w-full h-32 object-cover" />
+                            {p.discountRate && (
+                                <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg">
+                                    {p.discountRate}%
+                                </div>
+                            )}
+                            <button 
+                                onClick={() => addToCart(p, 1)}
+                                className="absolute bottom-2 right-2 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-900 hover:bg-brand hover:text-white transition-colors"
+                            >
+                                <Plus size={16} />
+                            </button>
+                        </div>
+                        <div className="p-3">
+                            <div className="text-xs text-gray-400 mb-1">{p.category}</div>
+                            <div className="font-bold text-gray-900 text-sm mb-1 truncate">{p.name}</div>
+                            <div className="font-bold text-brand">{p.price.toLocaleString()}원</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const CommunityPage = () => {
+    const { posts } = useData();
+
+    return (
+        <div className="p-5 pb-20 space-y-6">
+            {posts.map(post => (
+                <div key={post.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
+                    <div className="p-4 flex items-center gap-3">
+                        <img src={post.userAvatar} className="w-10 h-10 rounded-full bg-gray-100" />
+                        <div>
+                            <div className="font-bold text-sm text-gray-900">{post.userName}</div>
+                            <div className="text-xs text-gray-400">{post.date}</div>
+                        </div>
+                    </div>
+                    <img src={post.image} className="w-full h-64 object-cover" />
+                    <div className="p-4">
+                        <div className="flex gap-4 mb-3">
+                            <button className="flex items-center gap-1 text-gray-600 font-bold text-sm">
+                                <Heart size={20} className="text-red-500 fill-red-500"/> {post.likes}
+                            </button>
+                            <button className="flex items-center gap-1 text-gray-600 font-bold text-sm">
+                                <Share2 size={20} /> 공유
+                            </button>
+                        </div>
+                        <p className="text-gray-800 text-sm leading-relaxed">{post.content}</p>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
