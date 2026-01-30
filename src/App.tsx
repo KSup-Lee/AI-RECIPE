@@ -927,7 +927,220 @@ const FridgePage = () => {
         </div>
     );
 };
-const RecipePage = () => <div className="p-5">레시피 페이지 (내용 복구 필요)</div>;
+// --- RecipePage (완전 복구됨) ---
+const RecipePage = () => {
+    const { recipes, openMealModal, addToCart, fridge, cookRecipe } = useData();
+    const [filter, setFilter] = useState<'ALL' | 'MATCH' | 'EXPIRING' | 'LATE_NIGHT' | 'HEALTHY'>('ALL');
+    const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+    const [commentText, setCommentText] = useState('');
+
+    // [매칭 알고리즘] 냉장고 재료와 레시피 비교
+    const processedRecipes = recipes.map(recipe => {
+        let matchCount = 0;
+        const missingIngredients: string[] = [];
+        let hasExpiringIngredient = false;
+        
+        recipe.ingredients.forEach(ing => {
+            // 이름이 포함되어 있는지 유연하게 검사 (예: '대파' <-> '파')
+            const fridgeItem = fridge.find(fItem => fItem.name.includes(ing.name) || ing.name.includes(fItem.name));
+            if (fridgeItem) {
+                matchCount++;
+                const daysUntilExpiry = Math.ceil((new Date(fridgeItem.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                if (daysUntilExpiry <= 7) hasExpiringIngredient = true;
+            } else {
+                missingIngredients.push(ing.name);
+            }
+        });
+
+        const matchRate = Math.round((matchCount / recipe.ingredients.length) * 100);
+        return { ...recipe, matchRate, missingIngredients, hasExpiringIngredient };
+    });
+
+    // [필터링]
+    const displayRecipes = processedRecipes.filter(r => {
+        if (filter === 'EXPIRING' && !r.hasExpiringIngredient) return false;
+        if (filter === 'LATE_NIGHT' && !r.tags.includes('야식')) return false;
+        if (filter === 'HEALTHY' && !r.tags.includes('건강')) return false;
+        if (filter === 'MATCH' && r.matchRate < 50) return false; // 매칭 50% 이상만
+        return true;
+    });
+
+    // [정렬] 매칭률 높은 순, 그 다음엔 즐겨찾기 순
+    if (filter === 'MATCH' || filter === 'EXPIRING' || filter === 'ALL') {
+        displayRecipes.sort((a, b) => b.matchRate - a.matchRate);
+    }
+
+    return (
+        <div className="relative min-h-full pb-24 bg-background">
+             {/* 상단 AI 추천 배너 */}
+             <div className="bg-gradient-to-r from-brand to-green-700 p-6 text-white mb-2 shadow-lg">
+                <div className="flex items-start gap-3 mb-4">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
+                        <Bot size={24} className="text-white" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-lg leading-tight">AI 셰프의 오늘 추천</h2>
+                        <p className="text-xs text-white/80 mt-1">냉장고 상태와 날씨를 분석했어요</p>
+                    </div>
+                </div>
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                    {recipes.slice(0, 3).map(r => (
+                        <div key={r.id} onClick={() => setSelectedRecipe(r)} className="min-w-[120px] bg-white/10 backdrop-blur-sm rounded-2xl p-2 cursor-pointer border border-white/10 hover:bg-white/20 transition-colors">
+                            <img src={r.image} className="w-full h-20 object-cover rounded-xl mb-2 bg-black/20" />
+                            <div className="text-xs font-bold truncate">{r.name}</div>
+                            <div className="text-[10px] opacity-80">{r.cookingTime}분</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* 필터 탭 (가로 스크롤) */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 px-5 py-3 border-b border-gray-100 flex gap-2 overflow-x-auto no-scrollbar">
+                {[
+                    { key: 'ALL', label: '전체' },
+                    { key: 'MATCH', label: '냉파요리', icon: Zap },
+                    { key: 'EXPIRING', label: '임박재료', icon: AlertCircle },
+                    { key: 'LATE_NIGHT', label: '야식요리', icon: Moon },
+                    { key: 'HEALTHY', label: '건강요리', icon: Leaf },
+                ].map(tab => (
+                    <button 
+                        key={tab.key} 
+                        onClick={() => setFilter(tab.key as any)}
+                        className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${filter === tab.key ? 'bg-gray-900 text-white shadow-md transform scale-105' : 'bg-gray-50 text-gray-500 border border-gray-100'}`}
+                    >
+                        {tab.icon && <tab.icon size={14} fill={filter === tab.key ? "currentColor" : "none"} />}
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* 레시피 리스트 (2열 그리드) */}
+            <div className="p-4 grid grid-cols-2 gap-4">
+                {displayRecipes.map(recipe => (
+                    <div key={recipe.id} className="group relative flex flex-col gap-2 cursor-pointer" onClick={() => setSelectedRecipe(recipe)}>
+                        <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gray-100 shadow-sm border border-gray-100/50">
+                            <img src={recipe.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                            <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1">
+                                <Clock size={10} /> {recipe.cookingTime}분
+                            </div>
+                            {(recipe.matchRate > 0) && (
+                                <div className={`absolute top-2 right-2 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold border border-white/20 ${recipe.matchRate >= 80 ? 'bg-brand/90' : 'bg-orange-500/90'}`}>
+                                    {recipe.matchRate}% 매칭
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-1">
+                            <h3 className="font-bold text-gray-900 leading-tight mb-1 text-[15px] truncate">{recipe.name}</h3>
+                            <div className="flex items-center gap-1 text-xs text-gray-400 mb-0.5">
+                                <span className="truncate max-w-[80%]">{recipe.tags.slice(0, 2).join(', ')}</span>
+                            </div>
+                            <div className="text-[11px] font-bold text-orange-500 flex items-center gap-1">
+                                <Flame size={10} className="fill-orange-500" /> {recipe.nutrition.calories} kcal
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* 레시피 상세 모달 (팝업) */}
+            {selectedRecipe && (
+                <div className="fixed inset-0 z-50 bg-white flex flex-col animate-[slideUp_0.3s_ease-out]">
+                    <div className="flex-1 overflow-y-auto pb-32 relative">
+                        {/* 상세 이미지 헤더 */}
+                        <div className="relative h-[35vh]">
+                            <img src={selectedRecipe.image} className="w-full h-full object-cover" />
+                            <button onClick={() => setSelectedRecipe(null)} className="absolute top-4 right-4 bg-white/30 backdrop-blur-md p-2 rounded-full hover:bg-white/50 transition-colors">
+                                <X size={24} className="text-white" />
+                            </button>
+                            <div className="absolute bottom-0 w-full h-24 bg-gradient-to-t from-black/60 to-transparent"></div>
+                        </div>
+
+                        <div className="px-6 py-6 -mt-6 bg-white rounded-t-[2rem] relative z-10">
+                            {/* 제목 및 정보 */}
+                            <div className="flex justify-between items-start mb-2">
+                                <h2 className="text-2xl font-bold text-gray-900 leading-tight flex-1 mr-4">{selectedRecipe.name}</h2>
+                                <div className="flex flex-col items-end">
+                                    <div className="flex items-center gap-1 text-orange-500 font-bold text-sm">
+                                        <Star size={16} fill="currentColor" /> {selectedRecipe.rating.toFixed(1)}
+                                    </div>
+                                    <div className="text-xs text-gray-400">리뷰 {selectedRecipe.reviews.length}</div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-2 mb-6">
+                                <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-lg">{selectedRecipe.category}</span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-lg">{selectedRecipe.cookingTime}분</span>
+                                <span className={`px-2 py-1 text-xs font-bold rounded-lg ${selectedRecipe.difficulty === 'EASY' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                    {selectedRecipe.difficulty === 'EASY' ? '쉬움' : '보통'}
+                                </span>
+                            </div>
+
+                            {/* 재료 리스트 (냉장고 매칭 표시) */}
+                            <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center justify-between">
+                                재료 준비
+                                <span className="text-xs font-normal text-gray-400">{selectedRecipe.ingredients.length}개 재료</span>
+                            </h3>
+                            <div className="bg-gray-50 rounded-2xl p-4 mb-8 border border-gray-100">
+                                <ul className="space-y-3">
+                                    {(selectedRecipe as any).ingredients.map((ing: any, i: number) => {
+                                        const isMissing = (selectedRecipe as any).missingIngredients?.includes(ing.name);
+                                        const fridgeItem = fridge.find(f => f.name.includes(ing.name));
+                                        
+                                        return (
+                                            <li key={i} className="flex justify-between items-center text-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${isMissing ? 'bg-red-100 text-red-500' : 'bg-green-100 text-green-600'}`}>
+                                                        {isMissing ? 'X' : 'O'}
+                                                    </div>
+                                                    <span className={`flex items-center gap-2 ${isMissing ? 'text-gray-400' : 'text-gray-900 font-medium'}`}>
+                                                        {ing.name}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    {!isMissing && fridgeItem && <div className="text-[9px] text-brand">보유: {fridgeItem.quantity}{fridgeItem.unit}</div>}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+
+                            {/* 조리 순서 */}
+                            <h3 className="font-bold text-lg text-gray-900 mb-4">조리 순서</h3>
+                            <div className="space-y-6 mb-10">
+                                {selectedRecipe.steps.map((step, i) => (
+                                    <div key={i} className="flex gap-4">
+                                        <div className="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm border-2 border-green-100">
+                                            {i + 1}
+                                        </div>
+                                        <p className="text-sm text-gray-700 leading-relaxed pt-1">{step}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 하단 고정 액션바 */}
+                    <div className="absolute bottom-0 w-full bg-white border-t border-gray-200 p-4 safe-bottom flex items-center gap-3 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-50">
+                        <button 
+                            onClick={() => openMealModal(selectedRecipe)}
+                            className="flex flex-col items-center justify-center gap-1 text-gray-400 min-w-[3rem]"
+                        >
+                            <CalendarPlus size={22} strokeWidth={1.5} />
+                            <span className="text-[10px] font-medium">식단</span>
+                        </button>
+                        <button 
+                            onClick={() => cookRecipe(selectedRecipe)}
+                            className="flex-1 bg-brand text-white font-bold h-12 rounded-xl shadow-lg hover:bg-green-800 transition-colors flex items-center justify-center text-base"
+                        >
+                            요리하기 (재료 차감)
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 const ShoppingPage = () => <div className="p-5">장보기 페이지 (내용 복구 필요)</div>;
 const CommunityPage = () => <div className="p-5">커뮤니티 페이지 (내용 복구 필요)</div>;
 
