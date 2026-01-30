@@ -382,6 +382,12 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
 
     // [2] 저장 (추가 또는 수정)
     const handleSave = () => {
+        // 🚨 유효성 검사 추가: 수량이 비어있거나 숫자가 아니면 경고 (0은 허용)
+        if (form.quantity === undefined || form.quantity === null || isNaN(form.quantity)) {
+            alert('수량을 입력해주세요.');
+            return; // 저장하지 않고 함수 종료
+        }
+
         if (initialData) {
             // 수정 모드
             updateIngredient(initialData.id, form);
