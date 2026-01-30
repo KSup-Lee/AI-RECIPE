@@ -7,8 +7,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: '#2E7D32', // 우리가 쓰는 초록색
-        accent: '#FF6B00', // 우리가 쓰는 주황색
+        brand: '#2E7D32', // 우리가 쓰는 그 초록색
+        accent: '#FF6B00', // 우리가 쓰는 그 주황색
       },
       animation: {
         'fadeIn': 'fadeIn 0.2s ease-out',
