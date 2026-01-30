@@ -1,18 +1,28 @@
-const admin = require("firebase-admin");
-const serviceAccount = require("./serviceAccountKey.json"); // 다운받은 키 파일
+import admin from "firebase-admin";
+import { createRequire } from "module";
+import path from "path";
+import fetch from "node-fetch"; // 혹시 fetch 에러가 나면 이 줄은 지우셔도 됩니다 (Node 18+부터는 내장됨)
 
-// 1. 파이어베이스 관리자 모드로 접속
+// ES Module에서 JSON 파일을 불러오기 위한 설정
+const require = createRequire(import.meta.url);
+
+// 1. 키 파일 경로 설정 (현재 폴더에서 확실하게 찾기)
+const serviceAccountPath = path.join(process.cwd(), "serviceAccountKey.json");
+const serviceAccount = require(serviceAccountPath);
+
+console.log(`🔑 인증 키 로딩 성공: ${serviceAccount.project_id}`);
+
+// 2. 파이어베이스 접속
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 const db = admin.firestore();
 
-// 2. 공공데이터 설정
-const API_KEY = "71f28d5941fd4d63a514"; // 사용자님 키
+// 3. 공공데이터 설정
+const API_KEY = "71f28d5941fd4d63a514"; 
 const SERVICE_ID = "COOKRCP01";
-const BATCH_SIZE = 500; // 한 번에 처리할 양 (DB 제한)
 
-// 3. 데이터 변환 및 저장 함수
+// 4. 데이터 업로드 함수
 async function uploadData() {
   let startIdx = 1;
   let endIdx = 1000;
@@ -24,6 +34,7 @@ async function uploadData() {
     console.log(`\n📥 데이터 다운로드 중... (${startIdx} ~ ${endIdx})`);
     
     try {
+      // API 호출
       const url = `http://openapi.foodsafetykorea.go.kr/api/${API_KEY}/${SERVICE_ID}/json/${startIdx}/${endIdx}`;
       const response = await fetch(url);
       const json = await response.json();
@@ -35,9 +46,13 @@ async function uploadData() {
       }
 
       const recipes = json[SERVICE_ID].row;
-      const batch = db.batch(); // 한 번에 저장하기 위한 꾸러미
+      
+      // 한 번에 500개씩 저장 (Firestore 배치 제한)
+      const BATCH_LIMIT = 500;
+      let batch = db.batch();
+      let batchCount = 0;
 
-      recipes.forEach((raw) => {
+      for (const raw of recipes) {
         // (1) 재료 정리
         const ingredientString = raw.RCP_PARTS_DTLS || "";
         const ingredients = ingredientString.split(/,|\n/).map((s) => {
@@ -55,15 +70,15 @@ async function uploadData() {
             if (stepDesc) steps.push(stepDesc.replace(/^\d+\.\s*/, '')); 
         }
 
-        // (3) 카테고리
+        // (3) 카테고리 매핑
         let type = 'MAIN';
         if (raw.RCP_PAT2 === '반찬') type = 'SIDE';
         else if (raw.RCP_PAT2 === '국&찌개') type = 'SOUP';
         else if (raw.RCP_PAT2 === '밥') type = 'RICE';
         else if (raw.RCP_PAT2 === '후식') type = 'DESSERT';
 
-        // (4) 저장할 데이터 만들기
-        const docRef = db.collection("recipes").doc(); // 새 문서 생성
+        // (4) 저장할 데이터 객체 생성
+        const docRef = db.collection("recipes").doc(); // 새 문서 ID 자동 생성
         batch.set(docRef, {
             name: raw.RCP_NM,
             image: raw.ATT_FILE_NO_MK || '',
@@ -88,14 +103,27 @@ async function uploadData() {
             authorName: '식품안전나라',
             originalId: raw.RCP_SEQ 
         });
-      });
 
-      // (5) DB에 전송 (Commit)
-      await batch.commit();
+        batchCount++;
+
+        // 500개가 차면 전송하고 배치를 비움
+        if (batchCount === BATCH_LIMIT) {
+            await batch.commit();
+            console.log(`  - 500개 저장 완료...`);
+            batch = db.batch();
+            batchCount = 0;
+        }
+      }
+
+      // 남은 데이터 저장
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+
       totalCount += recipes.length;
-      console.log(`✨ ${recipes.length}개 저장 완료! (누적: ${totalCount}개)`);
+      console.log(`✨ 누적 ${totalCount}개 저장 완료!`);
 
-      // 다음 1000개를 위해 숫자 증가
+      // 다음 페이지로 이동
       startIdx += 1000;
       endIdx += 1000;
 
