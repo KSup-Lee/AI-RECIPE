@@ -341,19 +341,13 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
     const [mode, setMode] = useState<'SELECT' | 'DETAIL'>(initialData ? 'DETAIL' : 'SELECT');
     const [search, setSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<IngredientCategory | 'ALL'>('ALL');
-    const [selectedItems, setSelectedItems] = useState<PredefinedIngredient[]>([]);
     
-    // Detail Mode Form State
+    // 폼 데이터 상태
     const [form, setForm] = useState<Partial<Ingredient>>({
-        name: '',
-        category: 'VEGETABLE',
-        quantity: 1,
-        unit: '개',
-        storage: 'FRIDGE',
-        expiryDate: '',
-        image: ''
+        name: '', category: 'VEGETABLE', quantity: 1, unit: '개', storage: 'FRIDGE', expiryDate: '', image: '📦'
     });
 
+    // 모달 열릴 때 초기화
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
@@ -362,46 +356,43 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
             } else {
                 setMode('SELECT');
                 setSearch('');
-                setSelectedItems([]);
                 setSelectedCategory('ALL');
+                // 빈 폼으로 초기화
+                setForm({ name: '', category: 'VEGETABLE', quantity: 1, unit: '개', storage: 'FRIDGE', expiryDate: '', image: '📦' });
             }
         }
     }, [isOpen, initialData]);
 
-    const toggleSelection = (item: PredefinedIngredient) => {
-        setSelectedItems(prev => {
-            const exists = prev.find(i => i.name === item.name);
-            if (exists) return prev.filter(i => i.name !== item.name);
-            return [...prev, item];
+    // [1] 재료 선택 시 상세 입력 모드로 전환
+    const handleSelectPredefined = (item: PredefinedIngredient) => {
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + item.defaultExpiryDays);
+        
+        setForm({
+            name: item.name,
+            category: item.category,
+            quantity: 1,
+            unit: '개',
+            storage: item.defaultStorage,
+            expiryDate: expiryDate.toISOString().split('T')[0],
+            image: item.icon
         });
+        setMode('DETAIL'); // 입력 화면으로 이동
     };
 
-    const handleAddSelected = () => {
-        selectedItems.forEach(item => {
-            const expiryDate = new Date();
-            expiryDate.setDate(expiryDate.getDate() + item.defaultExpiryDays);
-            
-            addIngredient({
-                id: Math.random().toString(36).substr(2, 9),
-                name: item.name,
-                category: item.category,
-                quantity: 1,
-                unit: '개',
-                storage: item.defaultStorage,
-                expiryDate: expiryDate.toISOString().split('T')[0],
-                image: item.icon
-            } as Ingredient);
-        });
+    // [2] 저장 (추가 또는 수정)
+    const handleSave = () => {
+        if (initialData) {
+            // 수정 모드
+            updateIngredient(initialData.id, form);
+        } else {
+            // 추가 모드
+            addIngredient({ ...form, id: Math.random().toString(36).substr(2, 9) } as Ingredient);
+        }
         onClose();
     };
 
-    const handleUpdate = () => {
-        if (initialData) {
-            updateIngredient(initialData.id, form);
-            onClose();
-        }
-    };
-
+    // [3] 삭제
     const handleDelete = () => {
         if (initialData) {
             deleteIngredient(initialData.id);
@@ -415,24 +406,24 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-5 animate-[fadeIn_0.2s_ease-out]">
             <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-0 shadow-2xl h-[90vh] sm:h-[85vh] flex flex-col animate-[slideUp_0.3s_ease-out] overflow-hidden">
                 
-                {/* Header */}
+                {/* 헤더 */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0">
                     <div className="flex items-center gap-2">
                         {mode === 'DETAIL' && !initialData && (
                             <button onClick={() => setMode('SELECT')} className="p-1 -ml-2 rounded-full hover:bg-gray-100"><ChevronLeft size={24} /></button>
                         )}
                         <h3 className="font-bold text-xl text-gray-900">
-                            {mode === 'SELECT' ? '재료 선택' : '재료 상세'}
+                            {mode === 'SELECT' ? '재료 선택' : (initialData ? '재료 수정' : '세부 정보 입력')}
                         </h3>
                     </div>
                     <button onClick={onClose} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={20}/></button>
                 </div>
 
-                {/* Content */}
+                {/* 콘텐츠 영역 */}
                 <div className="flex-1 overflow-y-auto bg-gray-50/50">
                     {mode === 'SELECT' ? (
                         <div className="pb-24">
-                            {/* Search & Filter */}
+                            {/* 검색 및 카테고리 필터 */}
                             <div className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur-sm p-4 space-y-3 shadow-sm">
                                 <div className="relative">
                                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -442,6 +433,7 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
                                         placeholder="어떤 재료를 찾으세요?"
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
+                                        autoFocus
                                     />
                                 </div>
                                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -454,30 +446,26 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
                                 </div>
                             </div>
 
-                            {/* Grid */}
+                            {/* 재료 그리드 */}
                             <div className="p-4 grid grid-cols-4 gap-3">
                                 {PREDEFINED_INGREDIENTS.filter(item => 
                                     (selectedCategory === 'ALL' || item.category === selectedCategory) &&
                                     item.name.includes(search)
-                                ).map((item, i) => {
-                                    const isSelected = selectedItems.some(si => si.name === item.name);
-                                    return (
-                                        <button 
-                                            key={i} 
-                                            onClick={() => toggleSelection(item)}
-                                            className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all active:scale-95 ${isSelected ? 'bg-brand/10 border-brand shadow-inner ring-1 ring-brand' : 'bg-white border-gray-100 shadow-sm hover:border-brand/50'}`}
-                                        >
-                                            <div className="text-3xl">{item.icon}</div>
-                                            <span className={`text-xs font-bold break-keep text-center leading-tight ${isSelected ? 'text-brand' : 'text-gray-900'}`}>{item.name}</span>
-                                            {isSelected && <div className="absolute top-1 right-1 w-4 h-4 bg-brand rounded-full border-2 border-white"></div>}
-                                        </button>
-                                    );
-                                })}
+                                ).map((item, i) => (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => handleSelectPredefined(item)}
+                                        className="flex flex-col items-center gap-2 p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-brand/50 hover:shadow-md transition-all active:scale-95"
+                                    >
+                                        <div className="text-3xl">{item.icon}</div>
+                                        <span className="text-xs font-bold text-gray-900 break-keep text-center leading-tight">{item.name}</span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     ) : (
                         <div className="p-6 space-y-6">
-                            {/* Detail Form (Edit Mode) */}
+                            {/* 선택된 재료 정보 (아이콘, 이름) */}
                             <div className="flex flex-col items-center gap-2 py-4">
                                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-5xl shadow-sm border border-gray-100">
                                     {form.image || '📦'}
@@ -488,7 +476,9 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
                                 </span>
                             </div>
 
+                            {/* 상세 입력 폼 */}
                             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-5">
+                                {/* 보관 방법 */}
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">보관 방법</label>
                                     <div className="grid grid-cols-3 gap-2">
@@ -499,6 +489,7 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
                                         ))}
                                     </div>
                                 </div>
+                                {/* 소비기한 */}
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">소비기한</label>
                                     <div className="relative">
@@ -506,6 +497,7 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
                                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                                     </div>
                                 </div>
+                                {/* 수량 및 단위 */}
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">수량 및 단위</label>
                                     <div className="flex gap-3 h-14">
@@ -527,28 +519,16 @@ const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, on
                     )}
                 </div>
 
-                {/* Footer Buttons */}
+                {/* 하단 버튼 */}
                 <div className="p-5 bg-white border-t border-gray-100 flex gap-3 safe-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-20">
-                    {mode === 'SELECT' ? (
-                        <button 
-                            onClick={handleAddSelected}
-                            disabled={selectedItems.length === 0}
-                            className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${selectedItems.length > 0 ? 'bg-brand text-white hover:bg-green-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                        >
-                            {selectedItems.length > 0 ? `${selectedItems.length}개 재료 냉장고에 넣기` : '재료를 선택해주세요'}
+                    {initialData && (
+                        <button onClick={handleDelete} className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-colors">
+                            <Trash2 size={24} />
                         </button>
-                    ) : (
-                        <>
-                            {initialData && (
-                                <button onClick={handleDelete} className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-colors">
-                                    <Trash2 size={24} />
-                                </button>
-                            )}
-                            <button onClick={handleUpdate} className="flex-1 bg-brand text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-green-800 transition-colors text-lg">
-                                수정 완료
-                            </button>
-                        </>
                     )}
+                    <button onClick={handleSave} className="flex-1 bg-brand text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-green-800 transition-colors text-lg">
+                        {initialData ? '수정 완료' : '냉장고에 넣기'}
+                    </button>
                 </div>
             </div>
         </div>
@@ -794,13 +774,150 @@ const MyPage = () => {
 
 const MealPlanPage = () => <div className="p-5">식단 페이지 (내용 복구 필요)</div>;
 const FridgePage = () => {
-    const { fridge } = useData();
+    const { fridge, deleteIngredient } = useData();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | undefined>(undefined);
+    const [filterCategory, setFilterCategory] = useState<IngredientCategory | 'ALL'>('ALL');
+    
+    // [관리 모드 상태]
+    const [isManageMode, setIsManageMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+    // 수정 모달 열기 (관리 모드가 아닐 때만)
+    const handleEdit = (item: Ingredient) => {
+        if (isManageMode) {
+            toggleSelect(item.id);
+        } else {
+            setSelectedIngredient(item);
+            setIsModalOpen(true);
+        }
+    };
+
+    // 추가 모달 열기
+    const handleAdd = () => {
+        setSelectedIngredient(undefined);
+        setIsModalOpen(true);
+    };
+
+    // 선택 토글 (관리 모드)
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    };
+
+    // 선택 삭제
+    const handleDeleteSelected = () => {
+        if (confirm(`${selectedIds.length}개의 재료를 삭제하시겠습니까?`)) {
+            selectedIds.forEach(id => deleteIngredient(id));
+            setSelectedIds([]);
+            setIsManageMode(false);
+        }
+    };
+
+    const filteredFridge = fridge.filter(item => filterCategory === 'ALL' || item.category === filterCategory);
+    // 소비기한 임박 순 정렬
+    filteredFridge.sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+
     return (
-        <div className="p-5">
-            <div className="flex justify-between items-center mb-4"><h2 className="text-2xl font-bold">나의 냉장고</h2><button onClick={() => setIsModalOpen(true)}><Plus/></button></div>
-            <div className="grid grid-cols-3 gap-3">{fridge.map(f => <div key={f.id} className="bg-gray-50 p-3 rounded-2xl text-center"><div className="text-3xl">{f.image}</div><div className="font-bold">{f.name}</div></div>)}</div>
-            <IngredientModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+        <div className="p-5 pb-24 min-h-full bg-gray-50/50">
+             <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <Refrigerator className="text-blue-500" /> 나의 냉장고
+                </h2>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => { setIsManageMode(!isManageMode); setSelectedIds([]); }} 
+                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${isManageMode ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500'}`}
+                    >
+                        {isManageMode ? '완료' : '관리'}
+                    </button>
+                    {!isManageMode && (
+                        <button onClick={handleAdd} className="bg-brand text-white p-2 w-9 h-9 flex items-center justify-center rounded-full shadow-lg hover:scale-105 transition-transform">
+                            <Plus size={20} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* 카테고리 필터 */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-2">
+                <button onClick={() => setFilterCategory('ALL')} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${filterCategory === 'ALL' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>전체</button>
+                {CATEGORIES.map(cat => (
+                    <button key={cat.id} onClick={() => setFilterCategory(cat.id)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-1.5 ${filterCategory === cat.id ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200'}`}>
+                        <span>{cat.icon}</span> {cat.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* 재료 목록 */}
+            {filteredFridge.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                    {filteredFridge.map(item => {
+                        const daysLeft = Math.ceil((new Date(item.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                        const isExpired = daysLeft < 0;
+                        const isUrgent = daysLeft <= 3 && !isExpired;
+                        const isSelected = selectedIds.includes(item.id);
+
+                        return (
+                            <div 
+                                key={item.id} 
+                                onClick={() => handleEdit(item)} 
+                                className={`bg-white p-4 rounded-2xl shadow-sm border flex items-center gap-4 cursor-pointer relative overflow-hidden transition-all ${isManageMode && isSelected ? 'border-brand ring-1 ring-brand bg-brand/5' : 'border-gray-100 hover:border-blue-200'}`}
+                            >
+                                {isManageMode && (
+                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? 'bg-brand border-brand' : 'border-gray-300'}`}>
+                                        {isSelected && <CheckCircle size={14} className="text-white" />}
+                                    </div>
+                                )}
+                                
+                                <div className="text-3xl w-12 h-12 flex items-center justify-center bg-gray-50 rounded-xl shrink-0">
+                                    {item.image}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <h3 className="font-bold text-gray-900 truncate">{item.name}</h3>
+                                        {!isManageMode && (
+                                            isExpired ? <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">만료</span> :
+                                            isUrgent ? <span className="text-[10px] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-md">D-{daysLeft}</span> :
+                                            <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">D-{daysLeft}</span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <span className="font-bold text-blue-500">{item.quantity}{item.unit}</span>
+                                        <span className="w-px h-3 bg-gray-200"></span>
+                                        <span>{item.storage === 'FRIDGE' ? '냉장' : item.storage === 'FREEZER' ? '냉동' : '실온'}</span>
+                                        <span className="w-px h-3 bg-gray-200"></span>
+                                        <span>{item.expiryDate}까지</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                 <div className="flex flex-col items-center justify-center py-20 text-gray-300">
+                    <Refrigerator size={48} className="mb-4 opacity-20" />
+                    <p className="text-sm font-bold">냉장고가 비어있어요</p>
+                    <p className="text-xs mt-1">우측 상단 + 버튼을 눌러 재료를 채워보세요</p>
+                </div>
+            )}
+
+            {/* 관리 모드 하단 삭제 버튼 */}
+            {isManageMode && selectedIds.length > 0 && (
+                <div className="fixed bottom-20 left-0 right-0 p-5 z-30 animate-[slideUp_0.2s_ease-out]">
+                    <button 
+                        onClick={handleDeleteSelected}
+                        className="w-full bg-red-500 text-white font-bold py-4 rounded-2xl shadow-xl flex items-center justify-center gap-2 max-w-md mx-auto"
+                    >
+                        <Trash2 size={20} /> {selectedIds.length}개 삭제하기
+                    </button>
+                </div>
+            )}
+
+            <IngredientModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                initialData={selectedIngredient} 
+            />
         </div>
     );
 };
