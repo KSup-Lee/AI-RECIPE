@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
-import { Plus, Search, SlidersHorizontal, ArrowUpDown, Star } from 'lucide-react';
-import { CATEGORIES, INGREDIENT_UNITS } from '../constants';
+import { Plus, Search, SlidersHorizontal, ArrowUpDown, Star, X } from 'lucide-react';
+import { CATEGORIES, INGREDIENT_UNITS, PREDEFINED_INGREDIENTS } from '../constants';
 import { useData } from '../App';
+
+// 영어 카테고리를 한글로 변환하는 맵
+const CATEGORY_LABELS: Record<string, string> = {
+  VEGETABLE: '채소',
+  FRUIT: '과일',
+  MEAT: '정육/계란',
+  SEAFOOD: '수산/해물',
+  GRAIN: '곡류/견과',
+  DAIRY: '유제품',
+  SAUCE: '양념/오일',
+  PROCESSED: '가공/냉동',
+  ETC: '기타'
+};
 
 const getChosung = (str: string) => {
   const cho = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
@@ -14,23 +27,19 @@ const getChosung = (str: string) => {
   return result;
 };
 
-// 카테고리별 추천 단위 매핑
-const UNIT_BY_CATEGORY: Record<string, string> = {
-  'MEAT': 'g', 'SEAFOOD': '마리', 'VEGETABLE': '개', 'FRUIT': '개', 'DAIRY': 'ml', 'GRAIN': 'kg'
-};
-
 const FridgePage = () => {
   const { fridge, deleteIngredient, addIngredient, updateIngredient } = useData();
   const [filterCat, setFilterCat] = useState('ALL');
   const [sortType, setSortType] = useState('EXPIRY'); 
   const [search, setSearch] = useState('');
   
-  // 자주 사는 재료 관리
+  // 자주 사는 재료 (예시)
   const [frequentItems, setFrequentItems] = useState<string[]>(['계란', '우유', '양파']); 
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [form, setForm] = useState({ name: '', quantity: 1, unit: '개', expiryDate: '', category: 'VEGETABLE' });
+  const [modalSearch, setModalSearch] = useState(''); // 모달 내 재료 검색
 
   // 검색 및 정렬
   const filteredItems = fridge.filter(item => {
@@ -47,6 +56,7 @@ const FridgePage = () => {
   const handleOpenAdd = () => {
     setEditingItem(null);
     setForm({ name: '', quantity: 1, unit: '개', expiryDate: '', category: 'VEGETABLE' });
+    setModalSearch('');
     setIsModalOpen(true);
   };
 
@@ -54,6 +64,23 @@ const FridgePage = () => {
     setEditingItem(item);
     setForm({ ...item });
     setIsModalOpen(true);
+  };
+
+  // 재료 선택 시 자동 입력 (소비기한 계산 포함)
+  const selectPredefined = (item: any) => {
+    const today = new Date();
+    // 소비기한 자동 계산 (오늘 + 기본 유통기한)
+    const expiry = new Date(today.setDate(today.getDate() + (item.expiry || 7)));
+    const expiryStr = expiry.toISOString().split('T')[0];
+
+    setForm({
+      ...form,
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      expiryDate: expiryStr
+    });
+    setModalSearch(item.name); // 검색창에 이름 채우기
   };
 
   const handleSave = () => {
@@ -66,15 +93,10 @@ const FridgePage = () => {
     setIsModalOpen(false);
   };
 
-  // 카테고리 변경 시 단위 자동 변경
-  const handleCategoryChange = (catId: string) => {
-    setForm(prev => ({ ...prev, category: catId, unit: UNIT_BY_CATEGORY[catId] || '개' }));
-  };
-
   return (
     <div className="min-h-screen bg-[#f8f9fa] px-5 pt-6 pb-24">
       
-      {/* 1. 자주 사는 재료 (상단 고정) */}
+      {/* 1. 자주 사는 재료 */}
       <div className="mb-6 bg-white p-4 rounded-xl border border-gray-100">
         <div className="flex items-center gap-2 mb-3 text-gray-800 font-bold text-sm">
           <Star size={16} className="text-yellow-400 fill-yellow-400" /> 자주 사는 재료
@@ -88,14 +110,12 @@ const FridgePage = () => {
               </div>
             );
           })}
-          <button className="px-3 py-1.5 rounded-lg text-xs border border-dashed border-gray-300 text-gray-400">+ 추가</button>
         </div>
       </div>
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-gray-800">냉장고 목록 ({filteredItems.length})</h2>
         <div className="flex gap-2">
-           {/* 정렬 버튼 분리 */}
            <button onClick={() => setSortType(sortType === 'EXPIRY' ? 'NAME' : 'EXPIRY')} className="bg-white px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-600 font-bold flex items-center gap-1">
              <ArrowUpDown size={14} /> {sortType === 'EXPIRY' ? '유통기한순' : '가나다순'}
            </button>
@@ -111,7 +131,7 @@ const FridgePage = () => {
             <input 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="재료 검색 (초성 가능)"
+              placeholder="내 냉장고 검색 (초성 가능)"
               className="w-full bg-gray-50 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:ring-1 focus:ring-[#FF6B6B]"
             />
             <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
@@ -126,7 +146,7 @@ const FridgePage = () => {
          </div>
       </div>
 
-      {/* 리스트 뷰 (복구됨) */}
+      {/* 리스트 뷰 */}
       <div className="space-y-3">
         {filteredItems.map(item => (
           <div 
@@ -139,7 +159,8 @@ const FridgePage = () => {
                <div>
                   <div className="font-bold text-gray-800">{item.name}</div>
                   <div className="text-xs text-gray-400 flex gap-2">
-                     <span className="text-[#FF6B6B] font-bold">{item.category}</span>
+                     {/* 👇 카테고리 한글화 적용 */}
+                     <span className="text-[#FF6B6B] font-bold">{CATEGORY_LABELS[item.category] || item.category}</span>
                      <span>|</span>
                      <span>{item.expiryDate ? `~${item.expiryDate}` : '날짜미정'}</span>
                   </div>
@@ -156,31 +177,48 @@ const FridgePage = () => {
         ))}
       </div>
 
-      {/* 모달 */}
+      {/* 재료 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 animate-slide-up">
-             <h3 className="text-lg font-bold mb-4">{editingItem ? '재료 수정' : '새 재료 추가'}</h3>
-             <div className="space-y-4 mb-6">
-                <div>
-                   <label className="text-xs font-bold text-gray-400 mb-1 block">카테고리 {editingItem && '(수정불가)'}</label>
-                   <div className="flex gap-2 overflow-x-auto pb-1">
-                     {CATEGORIES.map(c => (
-                       <button 
-                         key={c.id} 
-                         disabled={!!editingItem} // 수정 시 비활성화
-                         onClick={() => handleCategoryChange(c.id)} 
-                         className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${form.category === c.id ? 'bg-[#FF6B6B] text-white border-[#FF6B6B]' : 'bg-white text-gray-500'} ${editingItem ? 'opacity-50 cursor-not-allowed' : ''}`}
-                       >
-                         {c.label}
-                       </button>
-                     ))}
-                   </div>
-                </div>
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 animate-slide-up h-[80vh] flex flex-col">
+             <div className="flex justify-between items-center mb-4">
+               <h3 className="text-lg font-bold">{editingItem ? '재료 수정' : '새 재료 추가'}</h3>
+               <button onClick={() => setIsModalOpen(false)}><X className="text-gray-400"/></button>
+             </div>
+             
+             <div className="flex-1 overflow-y-auto space-y-4">
+                {/* 1. 재료 검색 및 선택 (DB 연동) */}
+                {!editingItem && (
+                  <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 mb-4">
+                    <label className="text-xs font-bold text-[#FF6B6B] block mb-2">🔍 자주 찾는 재료 선택 (자동입력)</label>
+                    <input 
+                      value={modalSearch}
+                      onChange={e => setModalSearch(e.target.value)}
+                      placeholder="예: 계란, 우유..."
+                      className="w-full border p-2 rounded-lg bg-white text-sm mb-2"
+                    />
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {PREDEFINED_INGREDIENTS
+                        .filter(p => p.name.includes(modalSearch))
+                        .slice(0, 10) // 10개까지만 표시
+                        .map(p => (
+                          <button 
+                            key={p.name} 
+                            onClick={() => selectPredefined(p)}
+                            className="shrink-0 bg-white border border-orange-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm"
+                          >
+                            {p.icon} {p.name}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-xs font-bold text-gray-400 mb-1 block">이름</label>
-                  <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border p-3 rounded-xl bg-gray-50" placeholder="예: 양파"/>
+                  <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border p-3 rounded-xl bg-gray-50" placeholder="직접 입력 가능"/>
                 </div>
+                
                 <div className="flex gap-2">
                    <div className="flex-1">
                       <label className="text-xs font-bold text-gray-400 mb-1 block">수량</label>
@@ -193,15 +231,32 @@ const FridgePage = () => {
                       </select>
                    </div>
                 </div>
+                
                 <div>
-                  <label className="text-xs font-bold text-gray-400 mb-1 block">유통기한</label>
+                  <label className="text-xs font-bold text-gray-400 mb-1 block">유통기한 (자동계산됨)</label>
                   <input type="date" value={form.expiryDate} onChange={e => setForm({...form, expiryDate: e.target.value})} className="w-full border p-3 rounded-xl bg-gray-50"/>
                 </div>
+
+                <div>
+                   <label className="text-xs font-bold text-gray-400 mb-1 block">카테고리 {editingItem && '(수정불가)'}</label>
+                   <div className="flex gap-2 overflow-x-auto pb-1">
+                     {CATEGORIES.map(c => (
+                       <button 
+                         key={c.id} 
+                         disabled={!!editingItem} 
+                         onClick={() => setForm({...form, category: c.id})} 
+                         className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${form.category === c.id ? 'bg-[#FF6B6B] text-white border-[#FF6B6B]' : 'bg-white text-gray-500'} ${editingItem ? 'opacity-50' : ''}`}
+                       >
+                         {c.label}
+                       </button>
+                     ))}
+                   </div>
+                </div>
              </div>
-             <div className="flex gap-2">
-               <button onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-500">취소</button>
-               <button onClick={handleSave} className="flex-1 bg-[#FF6B6B] text-white py-3 rounded-xl font-bold">저장</button>
-             </div>
+             
+             <button onClick={handleSave} className="w-full bg-[#FF6B6B] text-white py-4 rounded-xl font-bold mt-4 shadow-md">
+               {editingItem ? '수정 완료' : '등록하기'}
+             </button>
           </div>
         </div>
       )}
