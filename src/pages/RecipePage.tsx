@@ -15,6 +15,7 @@ const RecipePage = () => {
   const [recipes, setRecipes] = useState<any[]>([]);
   const [searchParams] = useSearchParams();
   const searchTerm = searchParams.get('q') || '';
+  
   const [activeTab, setActiveTab] = useState('RECOMMEND'); 
   const [cuisineFilter, setCuisineFilter] = useState('ALL');
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
@@ -25,7 +26,9 @@ const RecipePage = () => {
   const [planDate, setPlanDate] = useState(new Date().toISOString().split('T')[0]);
   const [planType, setPlanType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('DINNER');
 
-  useEffect(() => { getDocs(collection(db, 'recipes')).then(snap => setRecipes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))); }, []);
+  useEffect(() => {
+    getDocs(collection(db, 'recipes')).then(snap => setRecipes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -87,13 +90,16 @@ const RecipePage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 mt-2">
+      {/* 레시피 리스트 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-2">
         {displayRecipes.map((recipe) => {
           const { matchRate } = getIngredientStatus(recipe.ingredients);
           return (
             <div key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
-              <div className="relative w-full aspect-square bg-gray-100">
-                 {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover absolute inset-0" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
+              {/* 🌟 PC/모바일 이미지 비율 조정 (핵심) */}
+              <div className="relative w-full h-40 sm:h-48 md:h-56 bg-gray-100">
+                 {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
+                 
                  {matchRate > 0 && <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><Sparkles size={8} className="text-yellow-400"/> {matchRate}%</div>}
                  <button onClick={(e) => { e.stopPropagation(); setPlanTargetRecipe(recipe); setIsPlanModalOpen(true); }} className="absolute bottom-2 right-2 bg-white/90 p-1.5 rounded-full text-[#FF6B6B] shadow-md hover:bg-white transition-colors"><CalendarPlus size={16} /></button>
               </div>
