@@ -9,10 +9,13 @@ const MealPlanPage = () => {
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
   const [search, setSearch] = useState('');
 
+  // 🔴 [오류 수정 완료] 문자열을 Date 객체로 변환 후 계산
   const getWeekDates = () => {
     const dates = [];
-    const start = new Date(selectedDate);
-    start.setDate(selectedDate.getDate() - selectedDate.getDay());
+    const current = new Date(selectedDate); // 문자열 -> 날짜 객체 변환
+    const start = new Date(current);
+    start.setDate(current.getDate() - current.getDay()); // 이제 에러 안 남!
+
     for (let i = 0; i < 7; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
@@ -21,7 +24,7 @@ const MealPlanPage = () => {
     return dates;
   };
 
-  const dateStr = selectedDate.toISOString().split('T')[0];
+  const dateStr = selectedDate; 
   const todayPlan = mealPlans.find(p => p.date === dateStr);
   const recommendedRecipes = getRecommendedRecipes(targetType, dateStr).filter(r => r.name.includes(search));
 
@@ -31,7 +34,7 @@ const MealPlanPage = () => {
       const bestRecipe = candidates[0];
       addToMealPlan(dateStr, type, bestRecipe);
     } else {
-      alert('추천할 만한 레시피가 없어요.');
+      alert('조건에 맞는 추천 레시피가 없어요.');
     }
   };
 
@@ -62,7 +65,7 @@ const MealPlanPage = () => {
     <div className="min-h-screen bg-[#f8f9fa] pb-24">
       <div className="bg-white p-4 shadow-sm mb-4">
         <div className="flex justify-between items-center mb-4">
-           <h2 className="text-xl font-bold text-gray-800">{selectedDate.split('-')[1]}월 {Math.ceil(new Date(selectedDate).getDate()/7)}주차</h2>
+           <h2 className="text-xl font-bold text-gray-800">{new Date(selectedDate).getMonth() + 1}월 {Math.ceil(new Date(selectedDate).getDate()/7)}주차</h2>
            <div className="flex gap-2">
              <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d.toISOString().split('T')[0]); }}><ChevronLeft/></button>
              <button onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])} className="text-xs bg-gray-100 px-2 py-1 rounded">오늘</button>
@@ -72,11 +75,12 @@ const MealPlanPage = () => {
         <div className="flex justify-between">
           {getWeekDates().map(date => {
             const dStr = date.toISOString().split('T')[0];
-            const isSelected = dStr === dateStr;
+            const isSelected = dStr === selectedDate;
             const isToday = new Date().toISOString().split('T')[0] === dStr;
+            const dayNames = ['일','월','화','수','목','금','토'];
             return (
               <button key={dStr} onClick={() => setSelectedDate(dStr)} className={`flex flex-col items-center p-2 rounded-xl min-w-[45px] transition-colors ${isSelected ? 'bg-[#FF6B6B] text-white shadow-md' : 'text-gray-500'}`}>
-                <span className="text-[10px] mb-1">{['일','월','화','수','목','금','토'][date.getDay()]}</span>
+                <span className="text-[10px] mb-1">{dayNames[date.getDay()]}</span>
                 <span className={`text-lg font-bold ${isToday && !isSelected ? 'text-[#FF6B6B]' : ''}`}>{date.getDate()}</span>
               </button>
             );
