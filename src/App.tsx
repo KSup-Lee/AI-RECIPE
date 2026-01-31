@@ -1328,20 +1328,49 @@ const CommunityPage = () => {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
-  if (loading) return <div className="h-screen flex items-center justify-center bg-white">로딩중...</div>;
-  if (!user) return <Routes><Route path="*" element={<AuthPage />} /></Routes>;
-  return (
-    <GlobalLayout>
+
+  // 1. 로딩 중일 때
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center bg-white">로딩중...</div>;
+  }
+
+  // 2. 로그인이 안 되어 있을 때 (로그인 화면으로)
+  if (!user) {
+    return (
       <Routes>
+        <Route path="*" element={<AuthPage />} />
+      </Routes>
+    );
+  }
+
+  // 3. 로그인 되었을 때 (여기가 진짜 알맹이 화면들!)
+  return (
+    // GlobalLayout 없이 깔끔한 div로 감쌌습니다.
+    // pb-24는 하단 메뉴바에 내용이 가려지지 않게 여백을 주는 역할입니다.
+    <div className="bg-white min-h-screen pb-24">
+      <Routes>
+        {/* 메인 홈 */}
         <Route path="/" element={<HomePage />} />
+
+        {/* 식단표 (있다면 유지) */}
         <Route path="/mealplan" element={<MealPlanPage />} />
+
+        {/* 냉장고 페이지 */}
         <Route path="/fridge" element={<FridgePage />} />
+
+        {/* 레시피 페이지 (우리가 만든 파일!) */}
         <Route path="/recipes" element={<RecipePage />} />
+
+        {/* 쇼핑 (있다면 유지) */}
         <Route path="/shopping" element={<ShoppingPage />} />
+
+        {/* 커뮤니티 (있다면 유지) */}
         <Route path="/community" element={<CommunityPage />} />
+
+        {/* 마이 페이지 */}
         <Route path="/mypage" element={<MyPage />} />
       </Routes>
-    </GlobalLayout>
+    </div>
   );
 };
 
