@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, ChefHat, AlertTriangle, User as UserIcon, Wand2 } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, AlertTriangle, Wand2 } from 'lucide-react';
 import { useData } from '../App';
 
 const MealPlanPage = () => {
-  const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, recipes, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal } = useData();
+  const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // 모달 및 추천 상태
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
   const [search, setSearch] = useState('');
@@ -25,15 +27,14 @@ const MealPlanPage = () => {
   const todayPlan = mealPlans.find(p => p.date === dateStr);
   const recommendedRecipes = getRecommendedRecipes(targetType, dateStr).filter(r => r.name.includes(search));
 
-  // 4, 6. 자동 식단 추천 기능
+  // 4, 6. 자동 식단 추천 기능 (AI)
   const handleAutoRecommend = (type: 'BREAKFAST' | 'LUNCH' | 'DINNER') => {
     const candidates = getRecommendedRecipes(type, dateStr);
     if (candidates.length > 0) {
-      // 1순위 추천 레시피 자동 등록
-      const bestRecipe = candidates[0];
+      const bestRecipe = candidates[0]; // 가장 적합한 1순위
       addToMealPlan(dateStr, type, bestRecipe);
     } else {
-      alert('추천할 만한 레시피가 없어요.');
+      alert('조건에 맞는 추천 레시피가 없어요.');
     }
   };
 
@@ -56,19 +57,20 @@ const MealPlanPage = () => {
       {/* 날짜 선택 */}
       <div className="bg-white p-4 shadow-sm mb-4">
         <div className="flex justify-between items-center mb-4">
-           <h2 className="text-xl font-bold text-gray-800">{selectedDate.getMonth()+1}월 {Math.ceil(selectedDate.getDate()/7)}주차</h2>
+           <h2 className="text-xl font-bold text-gray-800">{selectedDate.split('-')[1]}월 {Math.ceil(new Date(selectedDate).getDate()/7)}주차</h2>
            <div className="flex gap-2">
-             <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }}><ChevronLeft/></button>
-             <button onClick={() => setSelectedDate(new Date())} className="text-xs bg-gray-100 px-2 py-1 rounded">오늘</button>
-             <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }}><ChevronRight/></button>
+             <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d.toISOString().split('T')[0]); }}><ChevronLeft/></button>
+             <button onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])} className="text-xs bg-gray-100 px-2 py-1 rounded">오늘</button>
+             <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d.toISOString().split('T')[0]); }}><ChevronRight/></button>
            </div>
         </div>
         <div className="flex justify-between">
           {getWeekDates().map(date => {
-            const isSelected = date.toISOString().split('T')[0] === dateStr;
-            const isToday = new Date().toISOString().split('T')[0] === date.toISOString().split('T')[0];
+            const dStr = date.toISOString().split('T')[0];
+            const isSelected = dStr === dateStr;
+            const isToday = new Date().toISOString().split('T')[0] === dStr;
             return (
-              <button key={date.toString()} onClick={() => setSelectedDate(date)} className={`flex flex-col items-center p-2 rounded-xl min-w-[45px] transition-colors ${isSelected ? 'bg-[#FF6B6B] text-white shadow-md' : 'text-gray-500'}`}>
+              <button key={dStr} onClick={() => setSelectedDate(dStr)} className={`flex flex-col items-center p-2 rounded-xl min-w-[45px] transition-colors ${isSelected ? 'bg-[#FF6B6B] text-white shadow-md' : 'text-gray-500'}`}>
                 <span className="text-[10px] mb-1">{['일','월','화','수','목','금','토'][date.getDay()]}</span>
                 <span className={`text-lg font-bold ${isToday && !isSelected ? 'text-[#FF6B6B]' : ''}`}>{date.getDate()}</span>
               </button>
@@ -92,11 +94,8 @@ const MealPlanPage = () => {
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><span className={`w-2 h-6 rounded-full ${type === 'BREAKFAST' ? 'bg-yellow-400' : type === 'LUNCH' ? 'bg-orange-400' : 'bg-blue-400'}`}></span>{label}</h3>
                 <div className="flex gap-2">
-                    {/* 4. AI 자동 식단 추천 버튼 */}
-                    <button 
-                        onClick={() => handleAutoRecommend(type as any)} 
-                        className="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full font-bold shadow-sm hover:opacity-90 transition-colors flex items-center gap-1"
-                    >
+                    {/* 4. AI 자동 추천 버튼 */}
+                    <button onClick={() => handleAutoRecommend(type as any)} className="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full font-bold shadow-sm hover:opacity-90 transition-colors flex items-center gap-1">
                         <Wand2 size={12}/> AI 추천
                     </button>
                     {/* 5. 수동 추가 버튼 */}
@@ -166,6 +165,7 @@ const MealPlanPage = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              <p className="text-xs text-[#FF6B6B] font-bold mb-2">✨ AI 맞춤 추천 (알러지/기피재료 고려)</p>
               {recommendedRecipes.map(recipe => (
                 <div key={recipe.id} onClick={() => handleAddRecipe(recipe)} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-[#FF6B6B] cursor-pointer transition-colors">
                   <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
