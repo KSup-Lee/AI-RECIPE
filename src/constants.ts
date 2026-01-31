@@ -14,8 +14,8 @@ export const CATEGORIES: { id: IngredientCategory; label: string; icon: string }
 
 export const INGREDIENT_UNITS = ['개', 'g', 'kg', 'ml', 'L', '봉', '팩', '단', '모', '캔', '병', '마리', '알', '장', 'T', '근', '통', '박스'];
 
-export const ALLERGY_TAGS = ['달걀', '우유', '땅콩', '대두', '밀', '고등어', '게', '새우', '돼지고기', '복숭아', '토마토', '아황산류', '호두', '닭고기', '쇠고기', '오징어', '조개류'];
-export const DISEASE_TAGS = ['당뇨', '고혈압', '고지혈증', '비만', '신장질환', '위장장애', '통풍'];
+export const ALLERGY_TAGS = ['난류(달걀)', '우유', '메밀', '땅콩', '대두(콩)', '밀', '고등어', '게', '새우', '돼지고기', '복숭아', '토마토', '아황산류', '호두', '닭고기', '쇠고기', '오징어', '조개류(굴,전복,홍합 등)', '잣'];
+export const DISEASE_TAGS = ['당뇨', '고혈압', '고지혈증', '비만/과체중', '신장질환', '위장장애', '통풍', '아토피', '유당불내증'];
 
 // 🌟 [영상 기반] 단위 변환 데이터가 적용된 식재료 DB (약 450종)
 export const PREDEFINED_INGREDIENTS: PredefinedIngredient[] = [
@@ -356,6 +356,6 @@ export const PREDEFINED_INGREDIENTS: PredefinedIngredient[] = [
   { name: '흑미', category: 'GRAIN', icon: '🌾', defaultStorage: 'ROOM', defaultExpiryDays: 180, defaultUnit: 'kg', baseGram: 1000, suggestedUnits: ['kg', '봉'] },
 ];
 
-export const DUMMY_RECIPES: Recipe[] = []; 
-export const DUMMY_POSTS: Post[] = []; 
+export const DUMMY_RECIPES: any[] = []; 
+export const DUMMY_POSTS: any[] = []; 
 export const TODAY_MEAL: any = {};
