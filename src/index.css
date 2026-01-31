@@ -32,3 +32,23 @@ body {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+
+/* 👇 날짜 입력창 디자인 강제 수정 */
+input[type="date"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;             /* 너비 꽉 채우기 */
+  padding: 12px;           /* 내부 여백 */
+  border: 2px solid #EEE;  /* 테두리 */
+  border-radius: 12px;     /* 둥근 모서리 */
+  font-size: 16px;         /* 글자 크기 키우기 */
+  background-color: #FAFAFA;
+  font-family: sans-serif; /* 폰트 통일 */
+  color: #333;
+}
+
+/* 탭했을 때 테두리 색상 (코랄색) */
+input[type="date"]:focus {
+  border-color: #FF6B6B;
+  outline: none;
+}
