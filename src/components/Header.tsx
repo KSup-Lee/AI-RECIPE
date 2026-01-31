@@ -1,36 +1,58 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [keyword, setKeyword] = useState('');
 
-  // 검색창을 클릭하면 '레시피 페이지'로 이동하게 설정
-  const handleSearchClick = () => {
-    if (location.pathname !== '/recipes') {
-      navigate('/recipes');
+  // 레시피 페이지에 있을 때만 URL의 검색어(q=...)를 입력창에 표시
+  useEffect(() => {
+    if (location.pathname === '/recipes') {
+      setKeyword(searchParams.get('q') || '');
+    } else {
+      setKeyword(''); // 다른 페이지 가면 검색창 비우기
     }
+  }, [location, searchParams]);
+
+  // 검색어 입력 시 작동
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setKeyword(val);
+    
+    // 검색어를 입력하면 무조건 레시피 페이지로 이동시키며 검색어 전달
+    navigate(`/recipes?q=${val}`);
   };
 
   return (
-    <div className="sticky top-0 bg-[#FFFDF9] z-50 px-5 pt-6 pb-2">
-      {/* 1. 로고 & 장바구니 */}
-      <div className="flex justify-between items-center mb-3">
-        <h1 className="text-2xl font-black text-[#FF6B6B] tracking-tighter flex items-center gap-2" style={{ fontFamily: 'sans-serif' }}>
-          MealZip <span className="text-sm font-normal text-gray-400">오늘 뭐 먹지?</span>
-        </h1>
-        <button onClick={() => navigate('/shopping')} className="p-2 text-gray-400 hover:text-[#FF6B6B] transition-colors">
+    <div className="sticky top-0 bg-[#FFFDF9] z-50 px-5 pt-6 pb-2 border-b border-gray-100/50">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        
+        {/* 1. 로고 (클릭 시 홈으로) */}
+        <button onClick={() => navigate('/')} className="shrink-0">
+          <h1 className="text-xl font-black text-[#FF6B6B] tracking-tighter" style={{ fontFamily: 'sans-serif' }}>
+            MealZip
+          </h1>
+        </button>
+
+        {/* 2. 검색창 (어디서든 검색 가능!) */}
+        <div className="relative flex-1">
+          <input 
+            type="text" 
+            value={keyword}
+            onChange={handleSearch}
+            placeholder="요리나 재료 검색"
+            className="w-full bg-white border-2 border-[#FFE0B2] rounded-xl py-2 pl-9 pr-3 text-sm focus:outline-none focus:border-[#FF6B6B] shadow-sm transition-all"
+          />
+          <Search className="absolute left-3 top-2.5 text-[#FFB74D] w-4 h-4" />
+        </div>
+
+        {/* 3. 장바구니 */}
+        <button onClick={() => navigate('/shopping')} className="p-1 text-gray-400 hover:text-[#FF6B6B] transition-colors shrink-0">
           <ShoppingCart className="w-6 h-6" />
         </button>
-      </div>
-
-      {/* 2. 검색창 (누르면 레시피 탭으로 이동) */}
-      <div className="relative mb-2" onClick={handleSearchClick}>
-        <div className="w-full bg-white border-2 border-[#FFE0B2] rounded-2xl py-3 pl-12 pr-4 text-sm text-gray-400 shadow-sm cursor-text">
-          요리 이름이나 재료를 검색해보세요
-        </div>
-        <Search className="absolute left-4 top-3.5 text-[#FFB74D] w-5 h-5" />
       </div>
     </div>
   );
