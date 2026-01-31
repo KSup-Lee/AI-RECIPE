@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, ChefHat, ShoppingCart } from 'lucide-react';
+import { Search, ChefHat, ShoppingCart } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase'; 
-import { useNavigate } from 'react-router-dom'; // 페이지 이동용
+import { useNavigate } from 'react-router-dom';
 
 const CUISINE_TYPES = [
   { id: 'ALL', name: '전체' },
@@ -35,11 +35,12 @@ const RecipePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // 냉장고 재료 가져오기
         const fridgeSnap = await getDocs(collection(db, 'fridge'));
         const myIngredients = fridgeSnap.docs.map(doc => doc.data().name);
         setFridgeItems(myIngredients);
 
-        // 🔥 가짜 데이터 없이 오직 DB에서만 가져옵니다!
+        // 레시피 가져오기
         const recipeSnap = await getDocs(collection(db, 'recipes'));
         const loadedRecipes = recipeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setRecipes(loadedRecipes);
@@ -74,10 +75,10 @@ const RecipePage = () => {
   return (
     <div className="min-h-screen bg-[#FFFDF9] px-5 pt-6 pb-24">
       
-      {/* 👇 1. 헤더 복구: 로고 + 장바구니 버튼 */}
+      {/* 👇 1. 여기가 헤더(로고 + 검색 + 필터) 부분입니다! 꼭 있어야 해요 */}
       <div className="sticky top-0 bg-[#FFFDF9] z-10 pb-2">
         <div className="flex justify-between items-center mb-3">
-            <h1 className="text-2xl font-black text-[#FF6B6B] tracking-tighter flex items-center gap-2">
+            <h1 className="text-2xl font-black text-[#FF6B6B] tracking-tighter flex items-center gap-2" style={{ fontFamily: 'sans-serif' }}>
             MealZip <span className="text-sm font-normal text-gray-400">오늘 뭐 먹지?</span>
             </h1>
             <button onClick={() => navigate('/shopping')} className="p-2 text-gray-400 hover:text-[#FF6B6B] transition-colors">
@@ -103,7 +104,7 @@ const RecipePage = () => {
           <button onClick={() => setActiveSegment('INGREDIENT')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeSegment === 'INGREDIENT' ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'}`}>🥕 재료로 찾기</button>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <select value={selectedCuisine} onChange={(e) => setSelectedCuisine(e.target.value)} className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none">
             {CUISINE_TYPES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
