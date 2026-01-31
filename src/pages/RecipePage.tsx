@@ -6,12 +6,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useData } from '../App';
 
 const CUISINE_FILTERS = [
-  { id: 'ALL', label: '전체' },
-  { id: 'KOREAN', label: '한식' },
-  { id: 'WESTERN', label: '양식' },
-  { id: 'CHINESE', label: '중식' },
-  { id: 'JAPANESE', label: '일식' },
-  { id: 'ETC', label: '기타' },
+  { id: 'ALL', label: '전체' }, { id: 'KOREAN', label: '한식' }, { id: 'WESTERN', label: '양식' },
+  { id: 'CHINESE', label: '중식' }, { id: 'JAPANESE', label: '일식' }, { id: 'ETC', label: '기타' },
 ];
 
 const RecipePage = () => {
@@ -19,30 +15,22 @@ const RecipePage = () => {
   const [recipes, setRecipes] = useState<any[]>([]);
   const [searchParams] = useSearchParams();
   const searchTerm = searchParams.get('q') || '';
-  
   const [activeTab, setActiveTab] = useState('RECOMMEND'); 
   const [cuisineFilter, setCuisineFilter] = useState('ALL');
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
-
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [planTargetRecipe, setPlanTargetRecipe] = useState<any>(null);
   const [planDate, setPlanDate] = useState(new Date().toISOString().split('T')[0]);
   const [planType, setPlanType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('DINNER');
 
-  useEffect(() => {
-    getDocs(collection(db, 'recipes')).then(snap => {
-      setRecipes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-  }, []);
+  useEffect(() => { getDocs(collection(db, 'recipes')).then(snap => setRecipes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))); }, []);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 100) { setShowHeader(false); } 
-      else { setShowHeader(true); }
+      if (currentScrollY > lastScrollY && currentScrollY > 100) setShowHeader(false); else setShowHeader(true);
       setLastScrollY(currentScrollY);
     };
     window.addEventListener('scroll', handleScroll);
@@ -50,11 +38,7 @@ const RecipePage = () => {
   }, [lastScrollY]);
 
   const handleAddToPlan = () => {
-    if (planTargetRecipe) {
-      addToMealPlan(planDate, planType, planTargetRecipe);
-      setIsPlanModalOpen(false);
-      setPlanTargetRecipe(null);
-    }
+    if (planTargetRecipe) { addToMealPlan(planDate, planType, planTargetRecipe); setIsPlanModalOpen(false); setPlanTargetRecipe(null); }
   };
 
   const getIngredientStatus = (recipeIngs: any[]) => {
@@ -72,11 +56,7 @@ const RecipePage = () => {
     let list = recipes.filter(r => r.name.includes(searchTerm));
     if (cuisineFilter !== 'ALL') list = list.filter(r => r.category === cuisineFilter);
     if (activeTab === 'FAVORITE') list = list.filter(r => favorites.includes(r.id));
-    else if (activeTab === 'NAENGPA') {
-      list = list.map(r => ({ ...r, matchRate: getIngredientStatus(r.ingredients).matchRate }))
-        .filter(r => r.matchRate > 0)
-        .sort((a, b) => b.matchRate - a.matchRate);
-    }
+    else if (activeTab === 'NAENGPA') list = list.map(r => ({ ...r, matchRate: getIngredientStatus(r.ingredients).matchRate })).filter(r => r.matchRate > 0).sort((a, b) => b.matchRate - a.matchRate);
     return list;
   }, [recipes, searchTerm, activeTab, cuisineFilter, favorites, fridge]);
 
@@ -90,16 +70,12 @@ const RecipePage = () => {
       <div className={`sticky top-0 z-30 bg-[#f8f9fa] pt-2 pb-2 transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="flex bg-white p-1 rounded-xl mb-3 shadow-sm overflow-x-auto no-scrollbar">
           {[{ id: 'RECOMMEND', label: '추천요리' }, { id: 'NAENGPA', label: '냉파요리' }, { id: 'FAVORITE', label: '찜한요리' }, { id: 'CUSTOM', label: '나만의폴더' }].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex-1 min-w-[70px] py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${activeTab === t.id ? 'bg-[#FF6B6B] text-white shadow' : 'text-gray-400'}`}>
-              {t.label}
-            </button>
+            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex-1 min-w-[70px] py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${activeTab === t.id ? 'bg-[#FF6B6B] text-white shadow' : 'text-gray-400'}`}>{t.label}</button>
           ))}
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {CUISINE_FILTERS.map(f => (
-            <button key={f.id} onClick={() => setCuisineFilter(f.id)} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap ${cuisineFilter === f.id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200'}`}>
-              {f.label}
-            </button>
+            <button key={f.id} onClick={() => setCuisineFilter(f.id)} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap ${cuisineFilter === f.id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200'}`}>{f.label}</button>
           ))}
         </div>
       </div>
@@ -111,25 +87,15 @@ const RecipePage = () => {
         </div>
       )}
 
-      {/* 레시피 리스트 */}
       <div className="grid grid-cols-2 gap-4 mt-2">
         {displayRecipes.map((recipe) => {
           const { matchRate } = getIngredientStatus(recipe.ingredients);
           return (
             <div key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
-              {/* 2. 모바일 이미지 수정: w-full, aspect-square 적용 */}
               <div className="relative w-full aspect-square bg-gray-100">
                  {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover absolute inset-0" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
-                 
-                 {matchRate > 0 && (
-                   <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                     <Sparkles size={8} className="text-yellow-400"/> {matchRate}%
-                   </div>
-                 )}
-
-                 <button onClick={(e) => { e.stopPropagation(); setPlanTargetRecipe(recipe); setIsPlanModalOpen(true); }} className="absolute bottom-2 right-2 bg-white/90 p-1.5 rounded-full text-[#FF6B6B] shadow-md hover:bg-white transition-colors">
-                   <CalendarPlus size={16} />
-                 </button>
+                 {matchRate > 0 && <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><Sparkles size={8} className="text-yellow-400"/> {matchRate}%</div>}
+                 <button onClick={(e) => { e.stopPropagation(); setPlanTargetRecipe(recipe); setIsPlanModalOpen(true); }} className="absolute bottom-2 right-2 bg-white/90 p-1.5 rounded-full text-[#FF6B6B] shadow-md hover:bg-white transition-colors"><CalendarPlus size={16} /></button>
               </div>
               <div className="p-3">
                 <div className="text-[10px] text-[#FF6B6B] font-bold mb-1">{recipe.category}</div>
@@ -192,17 +158,12 @@ const RecipePage = () => {
             <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">📅 식단에 추가하기</h3>
             <p className="text-center text-gray-600 mb-4 text-sm font-bold">{planTargetRecipe?.name}</p>
             <div className="space-y-3 mb-6">
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">날짜</label>
-                <input type="date" value={planDate} onChange={e => setPlanDate(e.target.value)} className="w-full border p-2 rounded-lg bg-gray-50"/>
-              </div>
+              <div><label className="text-xs text-gray-400 block mb-1">날짜</label><input type="date" value={planDate} onChange={e => setPlanDate(e.target.value)} className="w-full border p-2 rounded-lg bg-gray-50"/></div>
               <div>
                 <label className="text-xs text-gray-400 block mb-1">시간</label>
                 <div className="flex gap-2">
                   {['BREAKFAST', 'LUNCH', 'DINNER'].map(t => (
-                    <button key={t} onClick={() => setPlanType(t as any)} className={`flex-1 py-2 text-xs rounded-lg font-bold ${planType === t ? 'bg-[#FF6B6B] text-white' : 'bg-gray-100 text-gray-500'}`}>
-                      {t === 'BREAKFAST' ? '아침' : t === 'LUNCH' ? '점심' : '저녁'}
-                    </button>
+                    <button key={t} onClick={() => setPlanType(t as any)} className={`flex-1 py-2 text-xs rounded-lg font-bold ${planType === t ? 'bg-[#FF6B6B] text-white' : 'bg-gray-100 text-gray-500'}`}>{t === 'BREAKFAST' ? '아침' : t === 'LUNCH' ? '점심' : '저녁'}</button>
                   ))}
                 </div>
               </div>
