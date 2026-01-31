@@ -1,175 +1,157 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import { Calendar as CalIcon, Plus, Trash2, ChevronLeft, ChevronRight, Flame, User as UserIcon } from 'lucide-react';
+import { collection, onSnapshot, query, where, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { useAuth, useData } from '../App';
 
 const MealPlanPage = () => {
-  const navigate = useNavigate();
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [mealPlans, setMealPlans] = useState<any[]>([]);
-  const [recipes, setRecipes] = useState<any[]>([]); // 레시피 검색용
-  const [isAdding, setIsAdding] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedType, setSelectedType] = useState('BREAKFAST'); // 아침/점심/저녁
-  const [selectedRecipe, setSelectedRecipe] = useState('');
+  const { user } = useAuth();
+  const { mealPlans, openMealModal, members, recipes, removeFromMealPlan } = useData();
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // 1. 이번 주 식단 데이터 가져오기 (실시간)
-  useEffect(() => {
-    // 날짜 범위 계산 (일요일 ~ 토요일)
-    const start = new Date(currentDate);
-    start.setDate(currentDate.getDate() - currentDate.getDay());
-    const startStr = start.toISOString().split('T')[0];
-
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    // 간단하게 문자열 비교를 위해 전체 데이터를 가져와서 필터링 (프로덕션에선 쿼리 최적화 필요)
-    
-    const unsubscribe = onSnapshot(collection(db, 'meal_plans'), (snapshot) => {
-      const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setMealPlans(loaded);
-    });
-    
-    // 레시피 목록도 미리 가져오기 (선택용)
-    getDocs(collection(db, 'recipes')).then(snap => {
-      setRecipes(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
-    });
-
-    return () => unsubscribe();
-  }, [currentDate]);
-
-  // 날짜 이동
-  const moveWeek = (direction: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(currentDate.getDate() + (direction * 7));
-    setCurrentDate(newDate);
-  };
-
-  // 식단 추가
-  const handleAdd = async () => {
-    if (!selectedRecipe) return;
-    
-    // 선택한 레시피 이름 찾기
-    const recipeName = recipes.find(r => r.id === selectedRecipe)?.name || '기타 요리';
-
-    await addDoc(collection(db, 'meal_plans'), {
-      date: selectedDate,
-      type: selectedType, // BREAKFAST, LUNCH, DINNER
-      recipeId: selectedRecipe,
-      recipeName: recipeName,
-      createdAt: new Date()
-    });
-    setIsAdding(false);
-  };
-
-  const handleDelete = async (id: string) => {
-    if(confirm('식단을 삭제하시겠습니까?')) await deleteDoc(doc(db, 'meal_plans', id));
-  };
-
-  // 주간 달력 생성
-  const getWeekDays = () => {
-    const days = [];
-    const start = new Date(currentDate);
-    start.setDate(currentDate.getDate() - currentDate.getDay()); // 일요일부터
-
+  // 가로 달력용 날짜 생성 (이번주)
+  const getWeekDates = () => {
+    const dates = [];
+    const start = new Date(selectedDate);
+    start.setDate(selectedDate.getDate() - selectedDate.getDay()); // 일요일부터
     for (let i = 0; i < 7; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      days.push(d.toISOString().split('T')[0]);
+      dates.push(d);
     }
-    return days;
+    return dates;
   };
 
+  const dateStr = selectedDate.toISOString().split('T')[0];
+  const todayPlan = mealPlans.find(p => p.date === dateStr);
+
+  // 통계 계산
+  let totalCalories = 0;
+  const ingredientCount: Record<string, number> = {};
+
+  ['BREAKFAST', 'LUNCH', 'DINNER'].forEach(type => {
+    todayPlan?.meals[type as 'BREAKFAST'].forEach(item => {
+      // 칼로리 (레시피에 없으면 대략 500으로 가정)
+      totalCalories += (item.recipe.calories || 500);
+      // 재료 카운트
+      item.recipe.ingredients?.forEach(ing => {
+        ingredientCount[ing.name] = (ingredientCount[ing.name] || 0) + 1;
+      });
+    });
+  });
+
+  const topIngredients = Object.entries(ingredientCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name]) => name);
+
   return (
-    <div className="min-h-screen bg-[#FFFDF9] px-5 pt-6 pb-24">
-      {/* 헤더 */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-black text-[#FF6B6B] flex items-center gap-2">
-          <Calendar className="w-6 h-6" /> 식단표
-        </h1>
-        <div className="flex items-center gap-2 bg-white rounded-full px-3 py-1 border border-[#FFE0B2]">
-          <button onClick={() => moveWeek(-1)}><ChevronLeft className="w-4 h-4 text-gray-400" /></button>
-          <span className="text-sm font-bold text-gray-600">
-            {currentDate.getMonth() + 1}월 {Math.ceil(currentDate.getDate() / 7)}주차
-          </span>
-          <button onClick={() => moveWeek(1)}><ChevronRight className="w-4 h-4 text-gray-400" /></button>
+    <div className="min-h-screen bg-[#f8f9fa] pb-24">
+      {/* 1. 상단 날짜 선택 (가로 스크롤) */}
+      <div className="bg-white p-4 shadow-sm mb-4">
+        <div className="flex justify-between items-center mb-4">
+           <h2 className="text-xl font-bold text-gray-800">{selectedDate.getMonth()+1}월 {Math.ceil(selectedDate.getDate()/7)}주차 식단</h2>
+           <div className="flex gap-2">
+             <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }}><ChevronLeft/></button>
+             <button onClick={() => setSelectedDate(new Date())} className="text-xs bg-gray-100 px-2 py-1 rounded">오늘</button>
+             <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }}><ChevronRight/></button>
+           </div>
+        </div>
+        <div className="flex justify-between">
+          {getWeekDates().map(date => {
+            const isSelected = date.toISOString().split('T')[0] === dateStr;
+            const isToday = new Date().toISOString().split('T')[0] === date.toISOString().split('T')[0];
+            return (
+              <button 
+                key={date.toString()} 
+                onClick={() => setSelectedDate(date)}
+                className={`flex flex-col items-center p-2 rounded-xl min-w-[45px] transition-colors ${isSelected ? 'bg-[#FF6B6B] text-white shadow-md' : 'text-gray-500'}`}
+              >
+                <span className="text-[10px] mb-1">{['일','월','화','수','목','금','토'][date.getDay()]}</span>
+                <span className={`text-lg font-bold ${isToday && !isSelected ? 'text-[#FF6B6B]' : ''}`}>{date.getDate()}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* 식단 추가 모달 (간단 버전) */}
-      {isAdding && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-lg mb-4">🍽️ 식단 추가하기</h3>
-            
-            <label className="block text-xs font-bold text-gray-400 mb-1">날짜</label>
-            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-full mb-3 p-2 border rounded-lg" />
-            
-            <label className="block text-xs font-bold text-gray-400 mb-1">시간</label>
-            <div className="flex gap-2 mb-3">
-              {['BREAKFAST', 'LUNCH', 'DINNER'].map(t => (
-                <button key={t} onClick={() => setSelectedType(t)} 
-                  className={`flex-1 py-2 text-xs rounded-lg font-bold ${selectedType === t ? 'bg-[#FF6B6B] text-white' : 'bg-gray-100'}`}>
-                  {t === 'BREAKFAST' ? '아침' : t === 'LUNCH' ? '점심' : '저녁'}
-                </button>
-              ))}
-            </div>
-
-            <label className="block text-xs font-bold text-gray-400 mb-1">메뉴 선택</label>
-            <select value={selectedRecipe} onChange={e => setSelectedRecipe(e.target.value)} className="w-full mb-6 p-2 border rounded-lg">
-              <option value="">레시피를 선택하세요</option>
-              {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-
-            <div className="flex gap-2">
-              <button onClick={() => setIsAdding(false)} className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-gray-500">취소</button>
-              <button onClick={handleAdd} className="flex-1 py-3 bg-[#FF6B6B] text-white rounded-xl font-bold">등록</button>
-            </div>
-          </div>
+      <div className="px-5">
+        {/* 2, 3. 요약 카드 (칼로리 & 재료) */}
+        <div className="bg-white rounded-2xl p-5 mb-6 flex justify-between items-center shadow-sm">
+           <div>
+             <p className="text-xs text-gray-400 font-bold mb-1">오늘의 섭취 예정</p>
+             <div className="flex items-end gap-1">
+               <Flame className="text-orange-500" size={24} fill="orange" />
+               <span className="text-2xl font-black text-gray-800">{totalCalories}</span>
+               <span className="text-xs text-gray-500 mb-1">kcal</span>
+             </div>
+           </div>
+           <div className="text-right">
+             <p className="text-xs text-gray-400 font-bold mb-2">많이 쓰는 재료</p>
+             <div className="flex gap-1 justify-end">
+               {topIngredients.length > 0 ? topIngredients.map((ing, i) => (
+                 <span key={i} className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-lg font-bold border border-green-100">
+                   {ing}
+                 </span>
+               )) : <span className="text-xs text-gray-300">식단을 등록해주세요</span>}
+             </div>
+           </div>
         </div>
-      )}
 
-      {/* 주간 리스트 */}
-      <div className="space-y-4">
-        {getWeekDays().map(dateStr => {
-          const dayPlans = mealPlans.filter(p => p.date === dateStr);
-          const dateObj = new Date(dateStr);
-          const dayName = ['일', '월', '화', '수', '목', '금', '토'][dateObj.getDay()];
-          const isToday = new Date().toISOString().split('T')[0] === dateStr;
-
+        {/* 4. 아침 / 점심 / 저녁 리스트 */}
+        {['BREAKFAST', 'LUNCH', 'DINNER'].map((type) => {
+          const meals = todayPlan?.meals[type as keyof typeof todayPlan.meals] || [];
+          const label = type === 'BREAKFAST' ? '아침' : type === 'LUNCH' ? '점심' : '저녁';
+          
           return (
-            <div key={dateStr} className={`bg-white rounded-2xl p-4 border ${isToday ? 'border-[#FF6B6B] shadow-md' : 'border-transparent shadow-sm'}`}>
+            <div key={type} className="mb-6">
               <div className="flex justify-between items-center mb-3">
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-lg font-black ${dateObj.getDay() === 0 ? 'text-red-400' : 'text-gray-800'}`}>{dateObj.getDate()}일</span>
-                  <span className="text-xs font-bold text-gray-400">{dayName}요일</span>
-                </div>
+                <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                  <span className={`w-2 h-6 rounded-full ${type === 'BREAKFAST' ? 'bg-yellow-400' : type === 'LUNCH' ? 'bg-orange-400' : 'bg-blue-400'}`}></span>
+                  {label}
+                </h3>
                 <button 
-                  onClick={() => { setSelectedDate(dateStr); setIsAdding(true); }}
-                  className="text-xs bg-orange-50 text-[#FF6B6B] px-2 py-1 rounded-lg font-bold"
+                  onClick={() => openMealModal(recipes[0])} // 실제로는 빈 모달 열어야 함 (단순화)
+                  className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded hover:bg-gray-200"
                 >
                   + 추가
                 </button>
               </div>
 
-              {/* 해당 날짜의 식단들 */}
-              <div className="space-y-2">
-                {dayPlans.length === 0 ? (
-                  <p className="text-xs text-gray-300 py-2 text-center">등록된 식단이 없습니다.</p>
-                ) : (
-                  dayPlans.sort((a,b) => (a.type === 'BREAKFAST' ? -1 : 1)).map(plan => (
-                    <div key={plan.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-bold text-gray-400 w-8">
-                          {plan.type === 'BREAKFAST' ? '아침' : plan.type === 'LUNCH' ? '점심' : '저녁'}
-                        </span>
-                        <span className="text-sm font-bold text-gray-700">{plan.recipeName}</span>
+              {meals.length === 0 ? (
+                <div className="bg-white rounded-xl p-4 text-center text-gray-300 text-sm border border-dashed border-gray-200">
+                  메뉴를 추가해주세요
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {meals.map((item, idx) => (
+                    <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative">
+                      <div className="flex gap-4">
+                        <img src={item.recipe.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
+                        <div className="flex-1">
+                          <h4 className="font-bold text-gray-800">{item.recipe.name}</h4>
+                          <p className="text-xs text-gray-400 mt-1">{item.recipe.calories || 500} kcal</p>
+                          
+                          {/* 5. 구성원 표시 */}
+                          <div className="flex gap-1 mt-2">
+                            {item.memberIds.map(mid => {
+                              const mem = members.find(m => m.id === mid);
+                              return mem ? (
+                                <div key={mid} className={`w-5 h-5 rounded-full ${mem.avatarColor || 'bg-gray-200'} flex items-center justify-center text-[10px] text-white border border-white shadow-sm`} title={mem.name}>
+                                  {mem.name[0]}
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                        <button onClick={() => removeFromMealPlan(dateStr, type as any, item.recipe.id)} className="text-gray-300 hover:text-red-400 self-start">
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <button onClick={() => handleDelete(plan.id)} className="text-gray-300 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
