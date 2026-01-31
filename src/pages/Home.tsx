@@ -1,82 +1,101 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
+import { CloudSun, Calendar, ChevronRight, MessageCircle, Heart } from 'lucide-react';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ChevronRight, Calendar, ShoppingCart, ChefHat, AlertCircle } from 'lucide-react';
+import { DUMMY_RECIPES } from '../constants'; // 더미 데이터 활용
 
 const Home = () => {
   const navigate = useNavigate();
-  const [fridgeCount, setFridgeCount] = useState(0);
-  const [userName, setUserName] = useState('사용자'); // 나중에 로그인 정보 연동
+  const [userName] = useState('사용자');
+  const [posts, setPosts] = useState<any[]>([]);
 
+  // 커뮤니티 글 가져오기
   useEffect(() => {
-    // 냉장고 재료 개수 가져오기
-    getDocs(collection(db, 'fridge')).then(snap => setFridgeCount(snap.size));
+    const fetchPosts = async () => {
+      try {
+        const q = query(collection(db, 'community_posts'), orderBy('createdAt', 'desc'), limit(3));
+        const snap = await getDocs(q);
+        setPosts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (e) { console.log(e); }
+    };
+    fetchPosts();
   }, []);
 
+  // 무드보드 이미지 (예시)
+  const MOOD_IMAGES = [
+    { id: 1, src: 'https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&fit=crop&w=800&q=80', title: '건강한 아침 식탁' },
+    { id: 2, src: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80', title: '활력 넘치는 점심' },
+    { id: 3, src: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', title: '가벼운 저녁 샐러드' },
+  ];
+
+  // 추천 로직 (간단 구현)
+  const todayRecipe = DUMMY_RECIPES[0]; // 실제로는 AI 로직 적용
+
   return (
-    <div className="min-h-screen bg-[#FFFDF9] px-5 pt-8 pb-24">
-      {/* 1. 상단 인사말 */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-black text-gray-800">
-            반가워요, <span className="text-[#FF6B6B]">{userName}</span>님! 👋
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">오늘도 맛있는 하루 보내세요.</p>
-        </div>
-      </div>
-
-      {/* 2. 메인 대시보드 카드 */}
-      <div className="bg-[#FF6B6B] rounded-3xl p-6 text-white shadow-xl shadow-orange-200 mb-6 relative overflow-hidden">
-        <div className="relative z-10">
-          <p className="text-orange-100 text-sm font-bold mb-1">내 냉장고 상황</p>
-          <h2 className="text-3xl font-black mb-4">{fridgeCount}개의 재료 <span className="text-lg font-normal">가 있어요</span></h2>
-          <button 
-            onClick={() => navigate('/fridge')}
-            className="bg-white text-[#FF6B6B] px-5 py-2 rounded-full text-sm font-bold hover:bg-orange-50 transition-colors"
-          >
-            냉장고 열어보기
-          </button>
-        </div>
-        {/* 장식용 아이콘 */}
-        <ChefHat className="absolute -right-4 -bottom-4 w-32 h-32 text-white opacity-20" />
-      </div>
-
-      {/* 3. 퀵 메뉴 (여기에 식단표 버튼이 있습니다!) */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <button 
-          onClick={() => navigate('/mealplan')}
-          className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-[#FFE0B2] text-left transition-all"
-        >
-          <div className="bg-orange-100 w-10 h-10 rounded-full flex items-center justify-center mb-3">
-            <Calendar className="w-5 h-5 text-[#FF6B6B]" />
-          </div>
-          <h3 className="font-bold text-gray-800">이번 주 식단표</h3>
-          <p className="text-xs text-gray-400 mt-1">체계적인 식습관 🗓️</p>
-        </button>
-
-        <button 
-          onClick={() => navigate('/shopping')}
-          className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-[#FFE0B2] text-left transition-all"
-        >
-          <div className="bg-blue-100 w-10 h-10 rounded-full flex items-center justify-center mb-3">
-            <ShoppingCart className="w-5 h-5 text-blue-500" />
-          </div>
-          <h3 className="font-bold text-gray-800">장보기 메모</h3>
-          <p className="text-xs text-gray-400 mt-1">놓치지 마세요 🛒</p>
-        </button>
-      </div>
-
-      {/* 4. 바로가기 배너 */}
-      <div onClick={() => navigate('/recipes')} className="bg-gray-800 rounded-2xl p-5 flex items-center justify-between cursor-pointer">
-        <div className="flex items-center gap-3">
-            <AlertCircle className="text-yellow-400" />
-            <div>
-                <h3 className="text-white font-bold">냉장고 파먹기 도전?</h3>
-                <p className="text-gray-400 text-xs">유통기한 임박 재료 구출하기</p>
+    <div className="bg-[#f8f9fa] min-h-screen pb-24">
+      
+      {/* 2, 3. 가로 스크롤 무드보드 */}
+      <div className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-64 bg-gray-100">
+        {MOOD_IMAGES.map((img) => (
+          <div key={img.id} className="snap-center shrink-0 w-full relative">
+            <img src={img.src} className="w-full h-full object-cover" alt={img.title} />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6 pt-20">
+              <h2 className="text-white text-2xl font-bold">{img.title}</h2>
             </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-5 -mt-6 relative z-10">
+        
+        {/* 4. 오늘 뭐 먹지? 추천 기능 */}
+        <div className="bg-white rounded-2xl p-5 shadow-lg mb-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-sm text-gray-500 mb-1 flex items-center gap-1">
+                <CloudSun size={14} /> 맑음 • <Calendar size={14} /> 금요일
+              </p>
+              <h3 className="text-xl font-bold text-gray-800">
+                <span className="text-[#2E7D32]">{userName}</span>님을 위한<br/>오늘의 추천 메뉴 🍽️
+              </h3>
+            </div>
+            <button onClick={() => navigate('/recipes')} className="bg-[#f1f3f5] p-2 rounded-full">
+              <ChevronRight size={20} className="text-gray-600" />
+            </button>
+          </div>
+          
+          <div onClick={() => navigate('/recipes')} className="flex gap-4 items-center cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-colors">
+            <img src={todayRecipe.image} className="w-20 h-20 rounded-xl object-cover" alt="추천" />
+            <div>
+              <span className="text-xs font-bold text-[#FF6B00] bg-orange-50 px-2 py-0.5 rounded">AI 분석</span>
+              <h4 className="font-bold text-lg mt-1">{todayRecipe.name}</h4>
+              <p className="text-xs text-gray-500 line-clamp-1">{todayRecipe.description}</p>
+            </div>
+          </div>
         </div>
-        <ChevronRight className="text-gray-500" />
+
+        {/* 5. 커뮤니티 미리보기 */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-lg">실시간 커뮤니티 🔥</h3>
+            <button onClick={() => navigate('/community')} className="text-xs text-gray-400">더보기</button>
+          </div>
+          <div className="space-y-3">
+            {posts.length > 0 ? posts.map(post => (
+              <div key={post.id} onClick={() => navigate('/community')} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer">
+                <p className="text-sm text-gray-800 line-clamp-2 mb-2">{post.content}</p>
+                <div className="flex gap-3 text-xs text-gray-400">
+                   <span className="flex items-center gap-1"><Heart size={12}/> {post.likes || 0}</span>
+                   <span className="flex items-center gap-1"><MessageCircle size={12}/> 0</span>
+                </div>
+              </div>
+            )) : (
+              <div className="text-center py-6 text-gray-400 text-sm bg-white rounded-xl">아직 게시글이 없어요.</div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
