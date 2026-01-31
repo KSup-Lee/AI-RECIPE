@@ -6,7 +6,6 @@ const MealPlanPage = () => {
   const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
-  // 모달 및 추천 상태
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
   const [search, setSearch] = useState('');
@@ -27,11 +26,12 @@ const MealPlanPage = () => {
   const todayPlan = mealPlans.find(p => p.date === dateStr);
   const recommendedRecipes = getRecommendedRecipes(targetType, dateStr).filter(r => r.name.includes(search));
 
-  // 4, 6. 자동 식단 추천 기능 (AI)
+  // 4, 6. 자동 식단 추천 핸들러
   const handleAutoRecommend = (type: 'BREAKFAST' | 'LUNCH' | 'DINNER') => {
     const candidates = getRecommendedRecipes(type, dateStr);
     if (candidates.length > 0) {
-      const bestRecipe = candidates[0]; // 가장 적합한 1순위
+      // 1순위 추천 레시피 자동 등록
+      const bestRecipe = candidates[0];
       addToMealPlan(dateStr, type, bestRecipe);
     } else {
       alert('조건에 맞는 추천 레시피가 없어요.');
@@ -95,7 +95,10 @@ const MealPlanPage = () => {
                 <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><span className={`w-2 h-6 rounded-full ${type === 'BREAKFAST' ? 'bg-yellow-400' : type === 'LUNCH' ? 'bg-orange-400' : 'bg-blue-400'}`}></span>{label}</h3>
                 <div className="flex gap-2">
                     {/* 4. AI 자동 추천 버튼 */}
-                    <button onClick={() => handleAutoRecommend(type as any)} className="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full font-bold shadow-sm hover:opacity-90 transition-colors flex items-center gap-1">
+                    <button 
+                        onClick={() => handleAutoRecommend(type as any)} 
+                        className="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full font-bold shadow-sm hover:opacity-90 transition-colors flex items-center gap-1"
+                    >
                         <Wand2 size={12}/> AI 추천
                     </button>
                     {/* 5. 수동 추가 버튼 */}
@@ -112,7 +115,7 @@ const MealPlanPage = () => {
                     
                     return (
                         <div key={idx} className={`bg-white p-4 rounded-xl shadow-sm border ${warnings.length > 0 ? 'border-red-200 bg-red-50' : 'border-gray-100'} relative`}>
-                        {/* 3. 식단 클릭 시 상세 이동 */}
+                        {/* 3. 식단 클릭 시 상세 모달 열기 */}
                         <div className="flex gap-3 mb-3 cursor-pointer" onClick={() => openMealModal(item.recipe)}>
                             <img src={item.recipe.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100 shrink-0" />
                             <div className="flex-1">
@@ -127,6 +130,7 @@ const MealPlanPage = () => {
                             <button onClick={(e) => { e.stopPropagation(); removeFromMealPlan(dateStr, type as any, item.recipe.id); }} className="text-gray-300 hover:text-red-400 self-start p-1"><Trash2 size={16} /></button>
                         </div>
                         
+                        {/* 식사 인원 편집 */}
                         <div className="flex gap-2 items-center pt-2 border-t border-gray-100 overflow-x-auto no-scrollbar">
                             <span className="text-[10px] text-gray-400 font-bold shrink-0">식사 인원:</span>
                             {members.map(m => (
