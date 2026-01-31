@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ChefHat, ShoppingCart } from 'lucide-react';
+import { Search, ChefHat } from 'lucide-react'; // ShoppingCart 삭제 (글로벌 헤더에 있음)
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase'; 
 import { useNavigate } from 'react-router-dom';
@@ -73,21 +73,15 @@ const RecipePage = () => {
   }, [recipes, searchTerm, activeSegment, selectedCuisine, selectedType, fridgeItems]);
 
   return (
-    <div className="min-h-screen bg-[#FFFDF9] px-5 pt-6 pb-24">
+    <div className="min-h-screen bg-[#FFFDF9] px-5 pb-24">
       
-      {/* 👇 1. 여기가 헤더(로고 + 검색 + 필터) 부분입니다! 꼭 있어야 해요 */}
-      <div className="sticky top-0 bg-[#FFFDF9] z-10 pb-2">
-        <div className="flex justify-between items-center mb-3">
-            <h1 className="text-2xl font-black text-[#FF6B6B] tracking-tighter flex items-center gap-2" style={{ fontFamily: 'sans-serif' }}>
-            MealZip <span className="text-sm font-normal text-gray-400">오늘 뭐 먹지?</span>
-            </h1>
-            <button onClick={() => navigate('/shopping')} className="p-2 text-gray-400 hover:text-[#FF6B6B] transition-colors">
-                <ShoppingCart className="w-6 h-6" />
-            </button>
-        </div>
+      {/* 🚨 [수정됨] 상단 로고와 장바구니 버튼은 App.tsx(전역 헤더)에 있으므로 여기서 삭제했습니다.
+        대신 실제 검색을 수행하는 입력창과 필터들은 유지합니다.
+      */}
 
-        {/* 2. 검색창 */}
-        <div className="relative mb-3">
+      <div className="sticky top-0 bg-[#FFFDF9] z-40 pt-2">
+        {/* 1. 검색창 (실제 기능 작동) */}
+        <div className="relative mb-3 pt-2">
           <input 
             type="text" 
             placeholder={activeSegment === 'INGREDIENT' ? "재료 이름으로 검색 (예: 계란)" : "요리 이름 검색 (예: 김치찌개)"}
@@ -95,15 +89,16 @@ const RecipePage = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-white border-2 border-[#FFE0B2] rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-[#FF6B6B] shadow-sm transition-all"
           />
-          <Search className="absolute left-4 top-3.5 text-[#FFB74D] w-5 h-5" />
+          <Search className="absolute left-4 top-5 text-[#FFB74D] w-5 h-5" />
         </div>
 
-        {/* 3. 탭 & 필터 */}
+        {/* 2. 탭 (레시피 vs 재료) */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
           <button onClick={() => setActiveSegment('RECIPE')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeSegment === 'RECIPE' ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'}`}>🍳 레시피</button>
           <button onClick={() => setActiveSegment('INGREDIENT')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeSegment === 'INGREDIENT' ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'}`}>🥕 재료로 찾기</button>
         </div>
 
+        {/* 3. 상세 필터 (한식/양식...) */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <select value={selectedCuisine} onChange={(e) => setSelectedCuisine(e.target.value)} className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none">
             {CUISINE_TYPES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
