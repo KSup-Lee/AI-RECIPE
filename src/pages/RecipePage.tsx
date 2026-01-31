@@ -1,47 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, ChefHat, ArrowRight } from 'lucide-react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase'; // 경로 확인!
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, ChevronDown, ChefHat, ShoppingCart } from 'lucide-react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase'; // firebase 경로 확인!
 
-// 카테고리 정의 (귀여운 이모지 사용)
-const CATEGORIES = [
-  { id: 'ALL', name: '전체', icon: '🍽️' },
-  { id: 'SOUP', name: '국/찌개', icon: '🥘' },
-  { id: 'MAIN', name: '메인요리', icon: '🍖' },
-  { id: 'SIDE', name: '반찬', icon: '🥗' },
-  { id: 'DESSERT', name: '간식', icon: '🍪' },
-  { id: 'RICE', name: '밥/죽', icon: '🍚' },
+// 👇 귀여운 카테고리 정의
+const CUISINE_TYPES = [
+  { id: 'ALL', name: '전체' },
+  { id: 'KOREAN', name: '🇰🇷 한식' },
+  { id: 'WESTERN', name: '🍝 양식' },
+  { id: 'CHINESE', name: '🥟 중식' },
+  { id: 'JAPANESE', name: '🍣 일식' },
+];
+
+const DISH_TYPES = [
+  { id: 'ALL', name: '모든 종류' },
+  { id: 'SOUP', name: '🍲 국/찌개' },
+  { id: 'MAIN', name: '🍖 메인반찬' },
+  { id: 'RICE', name: '🍚 밥/죽' },
+  { id: 'NOODLE', name: '🍜 면요리' },
+  { id: 'DESSERT', name: '🍰 간식' },
 ];
 
 const RecipePage = () => {
-  const navigate = useNavigate();
+  // 상태 관리
   const [recipes, setRecipes] = useState<any[]>([]);
-  const [filteredRecipes, setFilteredRecipes] = useState<any[]>([]);
   const [fridgeItems, setFridgeItems] = useState<string[]>([]);
-  
+  const [activeSegment, setActiveSegment] = useState<'RECIPE' | 'INGREDIENT' | 'SHOP'>('RECIPE');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [searchMode, setSearchMode] = useState<'RECIPE' | 'INGREDIENT'>('RECIPE'); // 검색 모드 (레시피명 vs 재료명)
+  
+  // 필터 상태
+  const [selectedCuisine, setSelectedCuisine] = useState('ALL');
+  const [selectedType, setSelectedType] = useState('ALL');
+  
+  // 성능 최적화 (Pagination)
+  const [visibleCount, setVisibleCount] = useState(20);
 
-  // 1. 데이터 불러오기 (내 냉장고 & 레시피 DB)
+  // 1. 데이터 불러오기 (DB에서만!)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 내 냉장고 재료 가져오기 (가짜 데이터 제거, 실제 DB 연동)
-        // 로그인한 유저 ID가 필요하지만, 일단 전체 냉장고 컬렉션에서 테스트 (추후 userQuery로 변경 필요)
-        const fridgeSnapshot = await getDocs(collection(db, 'fridge')); 
-        const myIngredients = fridgeSnapshot.docs.map(doc => doc.data().name);
+        // 냉장고 재료 가져오기
+        const fridgeSnap = await getDocs(collection(db, 'fridge'));
+        const myIngredients = fridgeSnap.docs.map(doc => doc.data().name); // 필드명이 name인지 확인
         setFridgeItems(myIngredients);
 
         // 레시피 가져오기
-        const recipeSnapshot = await getDocs(collection(db, 'recipes'));
-        const loadedRecipes = recipeSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const recipeSnap = await getDocs(collection(db, 'recipes'));
+        const loadedRecipes = recipeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setRecipes(loadedRecipes);
-        setFilteredRecipes(loadedRecipes);
       } catch (error) {
         console.error("데이터 로딩 실패:", error);
       }
@@ -49,179 +55,160 @@ const RecipePage = () => {
     fetchData();
   }, []);
 
-  // 2. 냉장고 매칭률 계산 함수 (NaN 해결!)
-  const calculateMatchRate = (recipeIngredients: any[]) => {
-    if (!recipeIngredients || recipeIngredients.length === 0) return 0;
+  // 2. 매칭률 계산 로직 (NaN% 해결)
+  const getMatchRate = (ingredients: any[]) => {
+    if (!ingredients || ingredients.length === 0) return 0;
     if (fridgeItems.length === 0) return 0;
-
-    // 재료 이름만 추출해서 비교
-    const matchCount = recipeIngredients.filter(ing => 
+    
+    // 재료 이름에 포함되는지 확인 (예: '김치'가 내 냉장고 '배추김치'에 포함되는지)
+    const matchCount = ingredients.filter(ing => 
       fridgeItems.some(myIng => myIng.includes(ing.name) || ing.name.includes(myIng))
     ).length;
-
-    return Math.round((matchCount / recipeIngredients.length) * 100);
+    
+    return Math.round((matchCount / ingredients.length) * 100);
   };
 
-  // 3. 검색 및 필터링 로직
-  useEffect(() => {
+  // 3. 필터링 & 검색 로직 (핵심!)
+  const filteredData = useMemo(() => {
     let result = recipes;
 
-    // 카테고리 필터
-    if (selectedCategory !== 'ALL') {
-      result = result.filter(r => r.type === selectedCategory);
-    }
+    // (1) 카테고리 필터
+    if (selectedCuisine !== 'ALL') result = result.filter(r => r.category === selectedCuisine);
+    if (selectedType !== 'ALL') result = result.filter(r => r.type === selectedType);
 
-    // 검색어 필터
+    // (2) 검색어 필터 & 세그먼트
     if (searchTerm) {
-      if (searchMode === 'RECIPE') {
+      if (activeSegment === 'RECIPE') {
         result = result.filter(r => r.name.includes(searchTerm));
-      } else {
-        // 재료로 검색
-        result = result.filter(r => 
-          r.ingredients.some((ing: any) => ing.name.includes(searchTerm))
-        );
+      } else if (activeSegment === 'INGREDIENT') {
+        result = result.filter(r => r.ingredients.some((ing: any) => ing.name.includes(searchTerm)));
       }
     }
 
-    // 매칭률 높은 순으로 정렬 (냉파요리 추천)
-    result.sort((a, b) => {
-      const matchA = calculateMatchRate(a.ingredients);
-      const matchB = calculateMatchRate(b.ingredients);
-      return matchB - matchA; // 내림차순
-    });
-
-    setFilteredRecipes(result);
-  }, [searchTerm, selectedCategory, recipes, searchMode, fridgeItems]);
+    // (3) 정렬: 검색어가 없으면 '매칭률' 순, 있으면 정확도 순
+    return result.sort((a, b) => getMatchRate(b.ingredients) - getMatchRate(a.ingredients));
+  }, [recipes, searchTerm, activeSegment, selectedCuisine, selectedType, fridgeItems]);
 
   return (
-    <div className="min-h-screen bg-[#FFFDF9] pb-24 px-5 pt-6">
+    <div className="min-h-screen bg-[#FFFDF9] px-5 pt-6 pb-24">
       
-      {/* 1. 상단: 로고 & 검색창 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-[#FF6B6B] mb-4 tracking-tighter" style={{fontFamily: 'GmarketSansBold, sans-serif'}}>
-          MealZip <span className="text-sm font-normal text-gray-400 ml-1">오늘 뭐 먹지?</span>
+      {/* 헤더: 로고 & 검색창 */}
+      <div className="sticky top-0 bg-[#FFFDF9] z-10 pb-2">
+        <h1 className="text-2xl font-black text-[#FF6B6B] mb-3 tracking-tighter flex items-center gap-2">
+          MealZip <span className="text-sm font-normal text-gray-400">오늘 뭐 먹지?</span>
         </h1>
 
-        <div className="relative">
+        {/* 검색창 */}
+        <div className="relative mb-3">
           <input 
             type="text" 
-            placeholder={searchMode === 'RECIPE' ? "김치찌개, 파스타..." : "가진 재료를 입력해보세요"}
+            placeholder={activeSegment === 'INGREDIENT' ? "재료 이름으로 검색 (예: 계란)" : "요리 이름 검색 (예: 김치찌개)"}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white border-2 border-[#FFE0B2] rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-[#FF6B6B] transition-colors shadow-sm"
+            className="w-full bg-white border-2 border-[#FFE0B2] rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-[#FF6B6B] shadow-sm transition-all"
           />
           <Search className="absolute left-4 top-3.5 text-[#FFB74D] w-5 h-5" />
         </div>
 
-        {/* 검색 모드 전환 탭 */}
-        <div className="flex gap-2 mt-3">
-            <button 
-                onClick={() => setSearchMode('RECIPE')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${searchMode === 'RECIPE' ? 'bg-[#FF6B6B] text-white' : 'bg-gray-100 text-gray-400'}`}
+        {/* 세그먼트 탭 (레시피 / 재료 / 쇼핑) */}
+        <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+          {[
+            { id: 'RECIPE', label: '🍳 레시피' },
+            { id: 'INGREDIENT', label: '🥕 재료로 찾기' },
+            { id: 'SHOP', label: '🛒 쇼핑 추천' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSegment(tab.id as any)}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                activeSegment === tab.id ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'
+              }`}
             >
-                요리명으로 찾기
+              {tab.label}
             </button>
-            <button 
-                onClick={() => setSearchMode('INGREDIENT')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${searchMode === 'INGREDIENT' ? 'bg-[#FF6B6B] text-white' : 'bg-gray-100 text-gray-400'}`}
-            >
-                재료로 찾기
-            </button>
+          ))}
         </div>
-      </div>
 
-      {/* 2. 카테고리 가로 스크롤 (세그먼트) */}
-      <div className="flex gap-3 overflow-x-auto pb-4 mb-2 scrollbar-hide">
-        {CATEGORIES.map((cat) => (
-          <button 
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-all ${
-              selectedCategory === cat.id 
-                ? 'bg-[#FFECB3] scale-105 shadow-md' 
-                : 'bg-white border border-gray-100'
-            }`}
+        {/* 상세 필터 (가로 스크롤) */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+          <select 
+            value={selectedCuisine}
+            onChange={(e) => setSelectedCuisine(e.target.value)}
+            className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none"
           >
-            <span className="text-2xl mb-1">{cat.icon}</span>
-            <span className={`text-[10px] font-bold ${selectedCategory === cat.id ? 'text-[#FF6F00]' : 'text-gray-400'}`}>
-              {cat.name}
-            </span>
-          </button>
-        ))}
+            {CUISINE_TYPES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+
+          <select 
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none"
+          >
+            {DISH_TYPES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
       </div>
 
-      {/* 3. 검색 결과 & 추천 리스트 */}
-      <div>
-        <div className="flex justify-between items-end mb-4">
-            <h2 className="text-lg font-bold text-gray-800">
-                {searchTerm ? `'${searchTerm}' 검색결과` : '🍳 추천 레시피'}
-                <span className="text-[#FF6B6B] ml-1 text-sm">{filteredRecipes.length}개</span>
-            </h2>
+      {/* 쇼핑 탭일 때 */}
+      {activeSegment === 'SHOP' ? (
+        <div className="text-center py-20 text-gray-400">
+          <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30" />
+          <p>준비 중인 기능입니다!</p>
         </div>
-
-        <div className="grid gap-4">
-          {filteredRecipes.map((recipe) => {
-            const matchRate = calculateMatchRate(recipe.ingredients);
-            const isNaengPa = matchRate >= 50; // 매칭률 50% 이상이면 냉파요리 뱃지
+      ) : (
+        /* 레시피 리스트 (속도 최적화: 20개씩 끊어서 보여줌) */
+        <div className="grid gap-4 mt-2">
+          {filteredData.slice(0, visibleCount).map((recipe) => {
+            const matchRate = getMatchRate(recipe.ingredients);
+            const isNaengPa = matchRate >= 50;
 
             return (
-              <div 
-                key={recipe.id} 
-                onClick={() => navigate(`/recipes/${recipe.id}`)} // 클릭 시 상세페이지 이동
-                className="bg-white rounded-2xl p-3 shadow-[0_2px_15px_rgba(0,0,0,0.03)] flex gap-4 cursor-pointer hover:bg-orange-50 transition-colors border border-transparent hover:border-[#FFE0B2]"
-              >
-                {/* 이미지 영역 */}
-                <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden shrink-0 relative">
+              <div key={recipe.id} className="bg-white rounded-2xl p-3 shadow-sm border border-transparent hover:border-[#FFE0B2] flex gap-4 transition-all">
+                {/* 이미지 */}
+                <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden shrink-0 relative">
                   {recipe.image ? (
                     <img src={recipe.image} alt={recipe.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                        <ChefHat />
-                    </div>
+                    <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>
                   )}
-                  {isNaengPa && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-[#FF6B6B] text-white text-[10px] font-bold text-center py-0.5">
-                        냉파추천!
-                    </div>
-                  )}
+                  {isNaengPa && <div className="absolute bottom-0 w-full bg-[#FF6B6B] text-white text-[10px] font-bold text-center py-0.5">냉파추천!</div>}
                 </div>
 
-                {/* 정보 영역 */}
+                {/* 정보 */}
                 <div className="flex-1 flex flex-col justify-center">
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-bold text-gray-800 text-md line-clamp-1">{recipe.name}</h3>
-                    {/* 매칭률 뱃지 */}
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        matchRate > 70 ? 'bg-green-100 text-green-600' :
-                        matchRate > 30 ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-400'
-                    }`}>
-                        {matchRate}% 일치
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-bold text-gray-800 line-clamp-1">{recipe.name}</h3>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${matchRate > 70 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                      {matchRate}% 일치
                     </span>
                   </div>
-                  
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{recipe.description}</p>
-                  
-                  <div className="mt-auto pt-2 flex items-center justify-between">
-                    <div className="flex gap-1 text-[10px] text-gray-400">
-                        <span>⏱️ {recipe.cookingTime || '20'}분</span>
-                        <span>•</span>
-                        <span>🔥 {recipe.difficulty === 'LEVEL1' ? '쉬움' : '보통'}</span>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-gray-300" />
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{recipe.description || '맛있는 레시피입니다.'}</p>
+                  <div className="mt-auto pt-2 flex gap-2 text-[10px] text-gray-400">
+                    <span>⏱️ {recipe.cookingTime || 30}분</span>
+                    <span>🔥 {recipe.difficulty === 'LEVEL1' ? '쉬움' : '보통'}</span>
                   </div>
                 </div>
               </div>
             );
           })}
-        </div>
+          
+          {/* 더 보기 버튼 (속도 핵심!) */}
+          {visibleCount < filteredData.length && (
+            <button 
+              onClick={() => setVisibleCount(prev => prev + 20)}
+              className="w-full py-3 mt-4 text-sm font-bold text-[#FF6B6B] bg-orange-50 rounded-xl hover:bg-orange-100"
+            >
+              더 보기 ({filteredData.length - visibleCount}개 남음)
+            </button>
+          )}
 
-        {filteredRecipes.length === 0 && (
-            <div className="text-center py-20">
-                <p className="text-4xl mb-2">🤔</p>
-                <p className="text-gray-400">검색 결과가 없어요.<br/>다른 키워드로 검색해보세요!</p>
+          {filteredData.length === 0 && (
+            <div className="text-center py-20 text-gray-400">
+              <p>검색 결과가 없어요 😢</p>
             </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
