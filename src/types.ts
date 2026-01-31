@@ -13,7 +13,7 @@ export interface User {
   avatar: string;
 }
 
-// [핵심 수정] 요일별 식사 설정 타입 (Key가 문자열)
+// 🌟 [핵심 수정] 요일별 식사 설정 타입 (이 부분이 에러의 원인이었습니다!)
 export interface DefaultMealSettings {
   [key: string]: { breakfast: boolean; lunch: boolean; dinner: boolean };
 }
@@ -23,7 +23,7 @@ export interface Member {
   id: string;
   name: string;
   gender: 'M' | 'F';
-  birthDate: string; // YYYY-MM-DD
+  birthDate: string;
   avatarColor: string;
   relationship: 'ME' | 'FAMILY';
 
@@ -38,8 +38,8 @@ export interface Member {
   diseases: string[];
   dislikes: string[];
   
-  // [연결] 식사 스케줄
-  defaultMeals?: DefaultMealSettings; // 데이터가 없을 수도 있으므로 ? 추가
+  // 식사 스케줄 (데이터가 없을 수도 있으므로 ? 추가)
+  defaultMeals?: DefaultMealSettings;
 
   proteinFocus: boolean; 
   quickOnly: boolean; 
