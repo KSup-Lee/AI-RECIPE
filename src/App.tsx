@@ -13,6 +13,7 @@ import HomePage from './pages/Home';        // 홈
 import FridgePage from './pages/FridgePage'; // 냉장고
 import RecipePage from './pages/RecipePage'; // 레시피
 import MyPage from './pages/MyPage';         // 마이페이지
+import Header from './components/Header'; // 헤더
 
 // ✨ 이번에 추가한 3가지 기능 (장보기, 커뮤니티, 식단표)
 import ShoppingPage from './pages/ShoppingPage';   // 장보기
@@ -1353,6 +1354,7 @@ const AppRoutes = () => {
   // 로그인 했을 때 (메인 화면)
   return (
     <div className="bg-white min-h-screen pb-24 relative shadow-lg max-w-md mx-auto">
+      <Header />
       <Routes>
         {/* 👇 원래 파일 안에 들어있는 페이지들 (그대로 사용) */}
         <Route path="/" element={<HomePage />} />     {/* 또는 <Home /> 이름 확인 필요 */}
