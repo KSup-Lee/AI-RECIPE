@@ -3,52 +3,32 @@
 @tailwind utilities;
 
 :root {
-  --brand: #2E7D32; /* 초록색 테마 */
-  --accent: #FF6B00; /* 주황색 포인트 */
+  /* 👇 다시 주황색(Coral) 테마로 변경 */
+  --brand: #FF6B6B; 
+  --accent: #FFB74D;
 }
 
 body {
   margin: 0;
-  background-color: #f8f9fa;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #FAFAFA; /* 배경은 아주 연한 회색 */
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", Roboto, "Malgun Gothic", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 /* 스크롤바 숨기기 */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* 애니메이션 효과 */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
+/* 애니메이션 */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-/* 👇 날짜 입력창 디자인 강제 수정 */
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+
+/* 날짜 입력창 스타일 */
 input[type="date"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;             /* 너비 꽉 채우기 */
-  padding: 12px;           /* 내부 여백 */
-  border: 2px solid #EEE;  /* 테두리 */
-  border-radius: 12px;     /* 둥근 모서리 */
-  font-size: 16px;         /* 글자 크기 키우기 */
-  background-color: #FAFAFA;
-  font-family: sans-serif; /* 폰트 통일 */
-  color: #333;
-}
-
-/* 탭했을 때 테두리 색상 (코랄색) */
-input[type="date"]:focus {
-  border-color: #FF6B6B;
-  outline: none;
+  appearance: none; -webkit-appearance: none;
+  width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 12px;
+  background-color: white; font-family: inherit;
 }
