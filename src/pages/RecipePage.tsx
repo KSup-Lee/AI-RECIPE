@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChefHat, Clock, Heart, X, Sparkles, FolderPlus, Utensils, CalendarPlus, ChevronDown } from 'lucide-react';
+import { ChefHat, Clock, Heart, X, Sparkles, FolderPlus, Utensils, CalendarPlus } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase'; 
 import { useSearchParams } from 'react-router-dom';
@@ -117,7 +117,7 @@ const RecipePage = () => {
           const { matchRate } = getIngredientStatus(recipe.ingredients);
           return (
             <div key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
-              {/* 2. 모바일 이미지 수정: aspect-square 강제 적용 및 object-cover 확인 */}
+              {/* 2. 모바일 이미지 수정: w-full, aspect-square 적용 */}
               <div className="relative w-full aspect-square bg-gray-100">
                  {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover absolute inset-0" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
                  
