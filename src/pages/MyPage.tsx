@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Heart, FileText, ShoppingBag, HelpCircle, ChevronRight, Users, X, Check, Search, AlertCircle, Edit2, Trash2 } from 'lucide-react';
+import { Heart, FileText, ShoppingBag, HelpCircle, ChevronRight, Users, X, Check, Search, AlertCircle, Edit2 } from 'lucide-react';
 import { useAuth, useData } from '../App';
 import { ALLERGY_TAGS, DISEASE_TAGS, PREDEFINED_INGREDIENTS } from '../constants';
 import { Member, DefaultMealSettings } from '../types';
@@ -17,12 +17,11 @@ const getChosung = (str: string) => {
 
 const MyPage = () => {
   const { user, logout } = useAuth();
-  const { members, addMember, updateMember, deleteMember, userStats } = useData();
+  const { members, addMember, updateMember, deleteMember } = useData();
   
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   
-  // 기본 스케줄 (모두 먹음)
   const initialSchedule = { breakfast: true, lunch: true, dinner: true };
   const initialWeeklySchedule: DefaultMealSettings = {
       MON: {...initialSchedule}, TUE: {...initialSchedule}, WED: {...initialSchedule}, 
@@ -156,21 +155,22 @@ const MyPage = () => {
             <h3 className="font-bold flex items-center gap-2 text-gray-800"><Users size={16}/> 우리 가족 구성원</h3>
             <button onClick={() => openModal()} className="text-xs bg-[#FF6B6B] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">+ 추가</button>
           </div>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 px-1">
             {members.map(member => (
               <div key={member.id} className="flex flex-col items-center gap-1 min-w-[64px] relative group cursor-pointer" onClick={() => openModal(member)}>
-                {/* 1. 아이콘 깨짐 수정 및 편집 연결 */}
-                <div className={`w-14 h-14 rounded-full ${member.avatarColor} flex items-center justify-center text-xl shadow-sm border-2 border-white relative`}>
-                  {member.name[0]}
-                  {/* 삭제 버튼이 아이콘을 가리지 않도록 위치 조정 */}
+                {/* 1. 아이콘 UI 수정 (깨짐 방지 및 X 버튼 위치 조정) */}
+                <div className="relative">
+                  <div className={`w-14 h-14 rounded-full ${member.avatarColor} flex items-center justify-center text-xl shadow-sm border-2 border-white`}>
+                    {member.name[0]}
+                  </div>
                   <div 
                     onClick={(e) => { e.stopPropagation(); if(confirm('삭제하시겠습니까?')) deleteMember(member.id); }} 
-                    className="absolute -top-1 -right-1 bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-white hover:bg-red-500 z-10"
+                    className="absolute -top-1 -right-1 bg-white text-gray-400 rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-gray-100 hover:bg-red-500 hover:text-white transition-colors z-10"
                   >
                     <X size={10} strokeWidth={3} />
                   </div>
                 </div>
-                <span className="text-xs text-gray-700 font-bold">{member.name}</span>
+                <span className="text-xs text-gray-700 font-bold mt-1">{member.name}</span>
               </div>
             ))}
             {members.length === 0 && <span className="text-xs text-gray-400 py-3">가족을 등록해주세요</span>}
@@ -178,6 +178,7 @@ const MyPage = () => {
         </div>
       </div>
 
+      {/* 메뉴 리스트 */}
       <div className="bg-white">
         {[{ icon: Heart, label: '찜한 레시피' }, { icon: FileText, label: '내 글 보기' }, { icon: ShoppingBag, label: '구매 내역' }, { icon: HelpCircle, label: '고객센터' }].map((item, i) => (
           <div key={i} className="flex items-center justify-between p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50">
