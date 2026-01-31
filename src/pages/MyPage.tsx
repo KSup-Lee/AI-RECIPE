@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { User, Settings, Heart, FileText, ShoppingBag, HelpCircle, ChevronRight, Users, X, Check, Search, AlertCircle } from 'lucide-react';
+import { User, Settings, Heart, FileText, ShoppingBag, HelpCircle, ChevronRight, Users, X, Check, Search, AlertCircle, Edit2 } from 'lucide-react';
 import { useAuth, useData } from '../App';
 import { ALLERGY_TAGS, DISEASE_TAGS, PREDEFINED_INGREDIENTS } from '../constants';
+import { Member } from '../types';
 
-// 초성 검색 유틸리티
 const getChosung = (str: string) => {
   const cho = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
   let result = "";
@@ -17,9 +17,10 @@ const getChosung = (str: string) => {
 
 const MyPage = () => {
   const { user, logout } = useAuth();
-  const { members, addMember, deleteMember } = useData();
+  const { members, addMember, updateMember, deleteMember } = useData();
   
   const [showModal, setShowModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null); // 수정할 멤버
   
   // 폼 상태
   const [form, setForm] = useState({
@@ -29,32 +30,51 @@ const MyPage = () => {
     height: '', weight: '',
     diseases: [] as string[],
     allergies: [] as string[],
-    dislikes: [] as string[], // 싫어하는 재료 리스트
+    dislikes: [] as string[],
     defaultMeals: {
         weekday: { breakfast: true, lunch: true, dinner: true },
         weekend: { breakfast: true, lunch: true, dinner: true }
     }
   });
 
-  // 싫어하는 재료 검색어 상태
   const [dislikeSearch, setDislikeSearch] = useState('');
 
-  // 싫어하는 재료 검색 필터링 (DB 연동)
   const filteredIngredients = useMemo(() => {
     if (!dislikeSearch) return [];
     const chosung = getChosung(dislikeSearch);
     return PREDEFINED_INGREDIENTS.filter(item => {
         const itemChosung = getChosung(item.name);
         return item.name.includes(dislikeSearch) || itemChosung.includes(chosung);
-    }).slice(0, 10); // 최대 10개만 표시
+    }).slice(0, 10);
   }, [dislikeSearch]);
 
-  const handleAddMember = () => {
+  // 모달 열기 (추가/수정 분기)
+  const openModal = (member?: Member) => {
+    if (member) {
+      setEditingMember(member);
+      const [y, m, d] = member.birthDate.split('-').map(Number);
+      setForm({
+        name: member.name,
+        dateY: y, dateM: m, dateD: d,
+        gender: member.gender,
+        height: String(member.height || ''), weight: String(member.weight || ''),
+        diseases: member.diseases || [],
+        allergies: member.allergies || [],
+        dislikes: member.dislikes || [],
+        defaultMeals: member.defaultMeals || { weekday: { breakfast: true, lunch: true, dinner: true }, weekend: { breakfast: true, lunch: true, dinner: true } }
+      });
+    } else {
+      setEditingMember(null);
+      setForm({ name: '', dateY: 2020, dateM: 1, dateD: 1, gender: 'M', height: '', weight: '', diseases: [], allergies: [], dislikes: [], defaultMeals: { weekday: { breakfast: true, lunch: true, dinner: true }, weekend: { breakfast: true, lunch: true, dinner: true } } });
+    }
+    setShowModal(true);
+  };
+
+  const handleSave = () => {
     if (!form.name) return alert('이름을 입력해주세요.');
     const birthDate = `${form.dateY}-${String(form.dateM).padStart(2,'0')}-${String(form.dateD).padStart(2,'0')}`;
     
-    addMember({
-      id: Date.now().toString(),
+    const memberData: any = {
       name: form.name,
       birthDate,
       gender: form.gender as 'M'|'F',
@@ -64,14 +84,19 @@ const MyPage = () => {
       allergies: form.allergies,
       hasNoDisease: form.diseases.length === 0,
       diseases: form.diseases,
-      dislikes: form.dislikes, // 선택된 기피 재료 리스트
-      avatarColor: 'bg-blue-200',
+      dislikes: form.dislikes,
+      avatarColor: editingMember ? editingMember.avatarColor : 'bg-blue-200', // 기존 색 유지
       relationship: 'FAMILY',
       defaultMeals: form.defaultMeals,
       proteinFocus: false, quickOnly: false, likes: [], targetCalories: 2000
-    });
+    };
+
+    if (editingMember) {
+      updateMember(editingMember.id, memberData);
+    } else {
+      addMember({ ...memberData, id: Date.now().toString() });
+    }
     setShowModal(false);
-    setForm({ ...form, name: '', dislikes: [], diseases: [], allergies: [] }); // 초기화
   };
 
   const toggleTag = (type: 'allergy'|'disease', tag: string) => {
@@ -83,9 +108,7 @@ const MyPage = () => {
   };
 
   const addDislike = (name: string) => {
-    if (!form.dislikes.includes(name)) {
-      setForm(prev => ({ ...prev, dislikes: [...prev.dislikes, name] }));
-    }
+    if (!form.dislikes.includes(name)) setForm(prev => ({ ...prev, dislikes: [...prev.dislikes, name] }));
     setDislikeSearch('');
   };
 
@@ -106,7 +129,6 @@ const MyPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] pb-24">
-      {/* 상단 내 정보 */}
       <div className="bg-white p-6 pt-10 mb-2">
         <div className="flex items-center gap-4 mb-6">
           <img src={user?.avatar} className="w-16 h-16 rounded-full bg-gray-200" />
@@ -114,18 +136,26 @@ const MyPage = () => {
           <button onClick={logout} className="ml-auto text-xs border px-3 py-1 rounded-full text-gray-500">로그아웃</button>
         </div>
 
-        {/* 구성원 리스트 */}
-        <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-          <div className="flex justify-between items-center mb-3">
+        <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100">
+          <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold flex items-center gap-2 text-gray-800"><Users size={16}/> 우리 가족 구성원</h3>
-            <button onClick={() => setShowModal(true)} className="text-xs bg-[#FF6B6B] text-white px-2 py-1 rounded font-bold">+ 추가</button>
+            <button onClick={() => openModal()} className="text-xs bg-[#FF6B6B] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">+ 추가</button>
           </div>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {members.map(member => (
-              <div key={member.id} className="flex flex-col items-center gap-1 min-w-[60px] relative group">
-                <div className={`w-12 h-12 rounded-full ${member.avatarColor} flex items-center justify-center text-lg shadow-sm border-2 border-white`}>{member.name[0]}</div>
-                <span className="text-xs text-gray-600 font-bold">{member.name}</span>
-                <button onClick={() => deleteMember(member.id)} className="absolute -top-1 -right-1 bg-red-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] shadow-sm">×</button>
+              <div key={member.id} className="flex flex-col items-center gap-1 min-w-[64px] relative group">
+                {/* 1. 편집 가능하게 수정 (클릭 시 모달) */}
+                <div onClick={() => openModal(member)} className={`w-14 h-14 rounded-full ${member.avatarColor} flex items-center justify-center text-xl shadow-sm border-2 border-white cursor-pointer relative`}>
+                  {member.name[0]}
+                  {/* 삭제 버튼 디자인 개선 */}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); if(confirm('삭제하시겠습니까?')) deleteMember(member.id); }} 
+                    className="absolute -top-1 -right-1 bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-md border border-white hover:bg-red-500 z-10"
+                  >
+                    <X size={12}/>
+                  </button>
+                </div>
+                <span className="text-xs text-gray-700 font-bold">{member.name}</span>
               </div>
             ))}
             {members.length === 0 && <span className="text-xs text-gray-400 py-3">가족을 등록해주세요</span>}
@@ -142,12 +172,14 @@ const MyPage = () => {
         ))}
       </div>
 
-      {/* 구성원 추가 모달 */}
+      {/* 모달 */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5">
-           <div className="bg-white w-full max-w-sm rounded-2xl p-6 h-[85vh] overflow-y-auto flex flex-col">
-              <div className="flex justify-between mb-4 shrink-0"><h3 className="font-bold text-lg">가족 상세 정보 입력</h3><button onClick={() => setShowModal(false)}><X/></button></div>
-              
+           <div className="bg-white w-full max-w-sm rounded-2xl p-6 h-[85vh] overflow-y-auto flex flex-col animate-slide-up">
+              <div className="flex justify-between mb-4 shrink-0">
+                <h3 className="font-bold text-lg">{editingMember ? '가족 정보 수정' : '가족 상세 정보 입력'}</h3>
+                <button onClick={() => setShowModal(false)}><X/></button>
+              </div>
               <div className="space-y-6 flex-1">
                 {/* 1. 기본 정보 */}
                 <section>
@@ -170,10 +202,9 @@ const MyPage = () => {
                         <input type="number" placeholder="몸무게(kg)" value={form.weight} onChange={e=>setForm({...form, weight: e.target.value})} className="flex-1 border p-2 rounded-lg text-sm"/>
                     </div>
                 </section>
-
-                {/* 2. 건강/식습관 (태그 선택 방식) */}
+                {/* 2. 건강/식습관 */}
                 <section>
-                    <label className="text-xs font-bold text-[#FF6B6B] mb-2 block">건강 관리</label>
+                    <label className="text-xs font-bold text-[#FF6B6B] mb-2 block">건강 및 식습관</label>
                     <div className="mb-3">
                         <span className="text-xs text-gray-500 mb-2 block">보유 질환 (선택)</span>
                         <div className="flex flex-wrap gap-1.5">
@@ -187,49 +218,26 @@ const MyPage = () => {
                         </div>
                     </div>
                 </section>
-
-                {/* 3. 싫어하는 재료 (DB 검색 방식) */}
+                {/* 3. 싫어하는 재료 */}
                 <section>
-                    <label className="text-xs font-bold text-[#FF6B6B] mb-2 block flex items-center gap-1">
-                        <AlertCircle size={12}/> 싫어하는 재료
-                    </label>
-                    
-                    {/* 선택된 재료 표시 */}
+                    <label className="text-xs font-bold text-[#FF6B6B] mb-2 block flex items-center gap-1"><AlertCircle size={12}/> 싫어하는 재료</label>
                     <div className="flex flex-wrap gap-2 mb-2">
                         {form.dislikes.map(d => (
-                            <span key={d} className="bg-gray-800 text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1">
-                                {d} <button onClick={() => removeDislike(d)}><X size={10}/></button>
-                            </span>
+                            <span key={d} className="bg-gray-800 text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1">{d} <button onClick={() => removeDislike(d)}><X size={10}/></button></span>
                         ))}
                     </div>
-
-                    {/* 검색창 */}
                     <div className="relative">
-                        <input 
-                            value={dislikeSearch}
-                            onChange={e => setDislikeSearch(e.target.value)}
-                            className="w-full border p-2 rounded-lg text-sm pl-8 focus:border-[#FF6B6B] outline-none" 
-                            placeholder="재료 검색 (예: 오이, 당근)"
-                        />
+                        <input value={dislikeSearch} onChange={e => setDislikeSearch(e.target.value)} className="w-full border p-2 rounded-lg text-sm pl-8 focus:border-[#FF6B6B] outline-none" placeholder="재료 검색 (예: 오이)"/>
                         <Search className="absolute left-2.5 top-2.5 text-gray-400 w-4 h-4"/>
-                        
-                        {/* 검색 결과 드롭다운 */}
                         {dislikeSearch && filteredIngredients.length > 0 && (
                             <div className="absolute z-10 w-full bg-white border rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
                                 {filteredIngredients.map(item => (
-                                    <button 
-                                        key={item.name} 
-                                        onClick={() => addDislike(item.name)}
-                                        className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 flex items-center gap-2"
-                                    >
-                                        <span>{item.icon}</span> {item.name}
-                                    </button>
+                                    <button key={item.name} onClick={() => addDislike(item.name)} className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 flex items-center gap-2"><span>{item.icon}</span> {item.name}</button>
                                 ))}
                             </div>
                         )}
                     </div>
                 </section>
-
                 {/* 4. 식사 스케줄 */}
                 <section>
                     <label className="text-xs font-bold text-[#FF6B6B] mb-2 block">기본 식사 스케줄</label>
@@ -257,8 +265,7 @@ const MyPage = () => {
                     </div>
                 </section>
               </div>
-              
-              <button onClick={handleAddMember} className="w-full bg-[#FF6B6B] text-white py-3 rounded-xl font-bold mt-4 shrink-0 shadow-md">저장하기</button>
+              <button onClick={handleSave} className="w-full bg-[#FF6B6B] text-white py-3 rounded-xl font-bold mt-4 shrink-0 shadow-md">저장하기</button>
            </div>
         </div>
       )}
