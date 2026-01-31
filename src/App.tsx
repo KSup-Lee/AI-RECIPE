@@ -16,7 +16,6 @@ import MyPage from './pages/MyPage';
 import Navigation from './components/Navigation';
 import Header from './components/Header';
 
-// 전역 모달용 import
 import { X, Utensils, Heart } from 'lucide-react';
 
 interface UserStats { points: number; coupons: number; reviews: number; shipping: number; }
@@ -70,7 +69,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [userStats, setUserStats] = useState<UserStats>({ points: 0, coupons: 0, reviews: 0, shipping: 0 });
   const [favorites, setFavorites] = useState<string[]>([]);
   
-  // 🌟 [중요 수정] 초기값을 요일별로 맞춰줌 (에러 방지)
   const initialSchedule = { breakfast: true, lunch: true, dinner: true };
   const [defaultSettings, setDefaultSettings] = useState<DefaultMealSettings>({ 
       MON: initialSchedule, TUE: initialSchedule, WED: initialSchedule, THU: initialSchedule, FRI: initialSchedule, SAT: initialSchedule, SUN: initialSchedule 
@@ -90,7 +88,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     return () => unsubs.forEach(u => u());
   }, [user]);
 
-  // CRUD Functions
   const addToCart = (product: any, quantity: number) => setCart(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), product, quantity }]);
   const removeFromCart = (id: string) => setCart(prev => prev.filter(item => item.id !== id));
   const addIngredient = async (item: Ingredient) => { if (!user) return; const { id, ...data } = item; await addDoc(collection(db, 'users', user.id, 'fridge'), data); };
@@ -103,7 +100,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const openMealModal = (recipe: Recipe) => setMealModalData({ isOpen: true, recipe });
   const closeMealModal = () => setMealModalData({ isOpen: false, recipe: null });
 
-  // 요일 구하기 (SUN, MON...)
   const getDayKey = (dateStr: string) => {
       const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
       return days[new Date(dateStr).getDay()];
@@ -142,6 +138,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     await setDoc(doc(db, 'users', user.id, 'mealPlans', date), { meals: updatedMeals });
   };
 
+  // 🌟 [핵심] 추천 로직: 실제로 먹는 멤버들 기준으로 정렬
   const getRecommendedRecipes = (type: 'BREAKFAST' | 'LUNCH' | 'DINNER', date: string): Recipe[] => {
     const dayKey = getDayKey(date);
     const eatingMembers = members.filter(m => {
@@ -151,19 +148,25 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     });
 
     let candidates = recipes;
+
+    // 1. 어린이가 있다면 매운 것 제외
     const hasKid = eatingMembers.some(m => {
         if(!m.birthDate) return false;
         const age = new Date().getFullYear() - new Date(m.birthDate).getFullYear();
         return age < 10;
     });
     if (hasKid) {
-        candidates = candidates.filter(r => !r.name.includes('불닭') && !r.tags.includes('매움'));
+        candidates = candidates.filter(r => !r.name.includes('불닭') && !r.tags?.includes('매움'));
     }
+
+    // 2. 알러지 유발 재료 완전 제외
     eatingMembers.forEach(m => {
         if (m.allergies && m.allergies.length > 0) {
             candidates = candidates.filter(r => !r.ingredients.some(ing => m.allergies.includes(ing.name)));
         }
     });
+
+    // 3. 기피 재료가 적은 순서대로 정렬 (0개인 것을 앞으로)
     return candidates.sort((a, b) => {
         const aWarnings = checkRecipeWarnings(a, eatingMembers.map(m => m.id)).length;
         const bWarnings = checkRecipeWarnings(b, eatingMembers.map(m => m.id)).length;
@@ -196,7 +199,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   );
 };
 
-// [전역 상세 모달]
 const MealDetailModal = () => {
     const { mealModalData, closeMealModal, favorites, toggleFavorite, fridge } = useData();
     const recipe = mealModalData.recipe;
@@ -205,8 +207,8 @@ const MealDetailModal = () => {
     return (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 animate-fade-in">
            <div className="bg-white w-full max-w-md h-[85vh] rounded-3xl relative flex flex-col overflow-hidden animate-slide-up">
-              <div className="relative h-56 bg-gray-200 shrink-0">
-                <img src={recipe.image} className="w-full h-full object-cover"/>
+              <div className="relative w-full aspect-video bg-gray-200 shrink-0">
+                <img src={recipe.image} className="absolute inset-0 w-full h-full object-cover"/>
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/40 to-transparent">
                    <span className="text-white font-bold text-sm bg-black/30 px-2 py-1 rounded-lg backdrop-blur-sm">{recipe.category}</span>
                    <button onClick={closeMealModal} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors"><X size={20}/></button>
