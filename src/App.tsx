@@ -6,7 +6,6 @@ import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
-// 페이지 컴포넌트
 import HomePage from './pages/Home';        
 import FridgePage from './pages/FridgePage'; 
 import RecipePage from './pages/RecipePage'; 
@@ -71,7 +70,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [userStats, setUserStats] = useState<UserStats>({ points: 0, coupons: 0, reviews: 0, shipping: 0 });
   const [favorites, setFavorites] = useState<string[]>([]);
   
-  // 안전한 초기값 설정
+  // 🌟 [중요 수정] 초기값을 요일별로 맞춰줌 (에러 방지)
   const initialSchedule = { breakfast: true, lunch: true, dinner: true };
   const [defaultSettings, setDefaultSettings] = useState<DefaultMealSettings>({ 
       MON: initialSchedule, TUE: initialSchedule, WED: initialSchedule, THU: initialSchedule, FRI: initialSchedule, SAT: initialSchedule, SUN: initialSchedule 
@@ -81,7 +80,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   useEffect(() => {
     if (!user) { setFridge([]); setMembers([]); setMealPlans([]); return; }
-    // Firebase Listeners
     const unsubs = [
         onSnapshot(collection(db, 'recipes'), (snap) => { if(!snap.empty) setRecipes(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Recipe))); }),
         onSnapshot(collection(db, 'users', user.id, 'fridge'), (snap) => setFridge(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ingredient)))),
@@ -118,7 +116,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
         const dayKey = getDayKey(date);
         targetMembers = members.filter(m => {
             const sched = m.defaultMeals?.[dayKey];
-            // 스케줄 없으면 기본적으로 true
             if (!sched) return true;
             return type === 'BREAKFAST' ? sched.breakfast : type === 'LUNCH' ? sched.lunch : sched.dinner;
         }).map(m => m.id);
@@ -154,7 +151,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     });
 
     let candidates = recipes;
-    // 어린이 체크
     const hasKid = eatingMembers.some(m => {
         if(!m.birthDate) return false;
         const age = new Date().getFullYear() - new Date(m.birthDate).getFullYear();
@@ -163,7 +159,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     if (hasKid) {
         candidates = candidates.filter(r => !r.name.includes('불닭') && !r.tags.includes('매움'));
     }
-    // 알러지 체크
     eatingMembers.forEach(m => {
         if (m.allergies && m.allergies.length > 0) {
             candidates = candidates.filter(r => !r.ingredients.some(ing => m.allergies.includes(ing.name)));
@@ -252,7 +247,6 @@ const MealDetailModal = () => {
     );
 };
 
-// [로그인 페이지]
 const AuthPage = () => {
   const { login } = useAuth();
   return (
