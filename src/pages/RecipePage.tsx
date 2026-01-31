@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ChefHat } from 'lucide-react'; // ShoppingCart 삭제 (글로벌 헤더에 있음)
+import { Search, ChefHat, ShoppingCart } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase'; 
 import { useNavigate } from 'react-router-dom';
@@ -35,12 +35,10 @@ const RecipePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 냉장고 재료 가져오기
         const fridgeSnap = await getDocs(collection(db, 'fridge'));
         const myIngredients = fridgeSnap.docs.map(doc => doc.data().name);
         setFridgeItems(myIngredients);
 
-        // 레시피 가져오기
         const recipeSnap = await getDocs(collection(db, 'recipes'));
         const loadedRecipes = recipeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setRecipes(loadedRecipes);
@@ -73,32 +71,40 @@ const RecipePage = () => {
   }, [recipes, searchTerm, activeSegment, selectedCuisine, selectedType, fridgeItems]);
 
   return (
-    <div className="min-h-screen bg-[#FFFDF9] px-5 pb-24">
+    <div className="min-h-screen bg-[#FFFDF9] px-5 pt-6 pb-24">
       
-      {/* 🚨 [수정됨] 상단 로고와 장바구니 버튼은 App.tsx(전역 헤더)에 있으므로 여기서 삭제했습니다.
-        대신 실제 검색을 수행하는 입력창과 필터들은 유지합니다.
-      */}
+      {/* 👇 헤더 디자인 변경: 로고 옆에 검색창 배치 (한 줄 레이아웃) */}
+      <div className="sticky top-0 bg-[#FFFDF9] z-10 pb-2">
+        <div className="flex items-center justify-between gap-3 mb-3">
+            {/* 1. 로고 (크기 고정) */}
+            <h1 className="text-xl font-black text-[#FF6B6B] tracking-tighter shrink-0" style={{ fontFamily: 'sans-serif' }}>
+            MealZip
+            </h1>
 
-      <div className="sticky top-0 bg-[#FFFDF9] z-40 pt-2">
-        {/* 1. 검색창 (실제 기능 작동) */}
-        <div className="relative mb-3 pt-2">
-          <input 
-            type="text" 
-            placeholder={activeSegment === 'INGREDIENT' ? "재료 이름으로 검색 (예: 계란)" : "요리 이름 검색 (예: 김치찌개)"}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white border-2 border-[#FFE0B2] rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-[#FF6B6B] shadow-sm transition-all"
-          />
-          <Search className="absolute left-4 top-5 text-[#FFB74D] w-5 h-5" />
+            {/* 2. 검색창 (남은 공간 차지) */}
+            <div className="relative flex-1">
+            <input 
+                type="text" 
+                placeholder={activeSegment === 'INGREDIENT' ? "재료 검색" : "요리 검색"}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white border-2 border-[#FFE0B2] rounded-xl py-2 pl-9 pr-3 text-sm focus:outline-none focus:border-[#FF6B6B] shadow-sm transition-all"
+            />
+            <Search className="absolute left-3 top-2.5 text-[#FFB74D] w-4 h-4" />
+            </div>
+
+            {/* 3. 장바구니 버튼 (크기 고정) */}
+            <button onClick={() => navigate('/shopping')} className="p-1 text-gray-400 hover:text-[#FF6B6B] transition-colors shrink-0">
+                <ShoppingCart className="w-6 h-6" />
+            </button>
         </div>
 
-        {/* 2. 탭 (레시피 vs 재료) */}
+        {/* 탭 & 필터 (그대로 유지) */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
           <button onClick={() => setActiveSegment('RECIPE')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeSegment === 'RECIPE' ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'}`}>🍳 레시피</button>
           <button onClick={() => setActiveSegment('INGREDIENT')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeSegment === 'INGREDIENT' ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'}`}>🥕 재료로 찾기</button>
         </div>
 
-        {/* 3. 상세 필터 (한식/양식...) */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <select value={selectedCuisine} onChange={(e) => setSelectedCuisine(e.target.value)} className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none">
             {CUISINE_TYPES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -109,7 +115,7 @@ const RecipePage = () => {
         </div>
       </div>
 
-      {/* 4. 레시피 리스트 */}
+      {/* 레시피 리스트 (그대로 유지) */}
       <div className="grid gap-4 mt-2">
         {filteredData.slice(0, visibleCount).map((recipe) => {
           const matchRate = getMatchRate(recipe.ingredients);
