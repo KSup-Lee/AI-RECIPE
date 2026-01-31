@@ -1354,7 +1354,6 @@ const AppRoutes = () => {
   // 로그인 했을 때 (메인 화면)
   return (
     <div className="bg-white min-h-screen pb-24 relative shadow-lg max-w-md mx-auto">
-      <Header />
       <Routes>
         {/* 👇 원래 파일 안에 들어있는 페이지들 (그대로 사용) */}
         <Route path="/" element={<HomePage />} />     {/* 또는 <Home /> 이름 확인 필요 */}
