@@ -1,34 +1,33 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { Plus, X, Search, ChevronLeft, Minus, Calendar, CheckCircle, Edit2, Trash2, Camera } from 'lucide-react';
-import { CATEGORIES, INGREDIENT_UNITS, ALLERGY_TAGS, DISEASE_TAGS, PREDEFINED_INGREDIENTS, TODAY_MEAL, DUMMY_RECIPES, DUMMY_POSTS } from './constants';
-import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Post, DefaultMealSettings, IngredientCategory, PredefinedIngredient, MealPlanItem } from './types';
+import { X } from 'lucide-react';
+import { DUMMY_RECIPES, DUMMY_POSTS, TODAY_MEAL, INGREDIENT_UNITS } from './constants';
+import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Post, DefaultMealSettings } from './types';
 
 // [Firebase Imports]
 import { auth, googleProvider, db } from './firebase'; 
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
-// 👇 페이지 불러오기
+// 👇 페이지들 불러오기 (파일 경로 확인 필요!)
 import HomePage from './pages/Home';        
+import FridgePage from './pages/FridgePage'; 
 import RecipePage from './pages/RecipePage'; 
 import ShoppingPage from './pages/ShoppingPage';   
 import CommunityPage from './pages/CommunityPage'; 
 import MealPlanPage from './pages/MealPlanPage';   
+import MyPage from './pages/MyPage';         
 
 // 👇 공통 컴포넌트
 import Navigation from './components/Navigation';
 import Header from './components/Header';
-
-// ⚠️ 주의: FridgePage와 MyPage는 별도 파일이 없어서 여기에 포함했습니다.
-// 추후 src/pages/FridgePage.tsx 등으로 분리하면 더 좋습니다.
 
 // [사용자 통계 데이터 타입]
 interface UserStats {
   points: number; coupons: number; reviews: number; shipping: number;
 }
 
-// --- Contexts ---
+// --- Context Definitions ---
 interface AuthContextType {
   user: User | null; login: (type: string) => Promise<boolean>; logout: () => void; loading: boolean;
 }
@@ -46,8 +45,9 @@ interface DataContextType {
 }
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const useAuth = () => { const context = useContext(AuthContext); if (!context) throw new Error("useAuth error"); return context; };
-const useData = () => { const context = useContext(DataContext); if (!context) throw new Error("useData error"); return context; };
+// --- Custom Hooks ---
+export const useAuth = () => { const context = useContext(AuthContext); if (!context) throw new Error("useAuth error"); return context; };
+export const useData = () => { const context = useContext(DataContext); if (!context) throw new Error("useData error"); return context; };
 
 // --- Providers ---
 const AuthProvider = ({ children }: { children?: ReactNode }) => {
@@ -91,6 +91,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     return () => unsubs.forEach(u => u());
   }, [user]);
 
+  // 데이터 조작 함수들
   const addToCart = (product: any, quantity: number) => setCart(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), product, quantity }]);
   const removeFromCart = (id: string) => setCart(prev => prev.filter(item => item.id !== id));
   const addIngredient = async (item: Ingredient) => { if (!user) return; const { id, ...data } = item; await addDoc(collection(db, 'users', user.id, 'fridge'), data); };
@@ -135,27 +136,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   );
 };
 
-// [필수 모달들]
-const IngredientModal = ({ isOpen, onClose, initialData }: { isOpen: boolean, onClose: () => void, initialData?: Ingredient }) => {
-    const { addIngredient, updateIngredient, deleteIngredient } = useData();
-    const [form, setForm] = useState<Partial<Ingredient>>({ name: '', category: 'VEGETABLE', quantity: 1, unit: '개', storage: 'FRIDGE', expiryDate: '', image: '📦' });
-    useEffect(() => { if (isOpen) setForm(initialData || { name: '', category: 'VEGETABLE', quantity: 1, unit: '개', storage: 'FRIDGE', expiryDate: '', image: '📦' }); }, [isOpen, initialData]);
-    const handleSave = () => { if (!form.name) return; if (initialData) updateIngredient(initialData.id, form); else addIngredient({ ...form, id: Math.random().toString(36).substr(2, 9) } as Ingredient); onClose(); };
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5">
-            <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
-                <div className="flex justify-between"><h3>{initialData ? '재료 수정' : '재료 추가'}</h3><button onClick={onClose}><X size={20}/></button></div>
-                <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border p-2 rounded" placeholder="이름" />
-                <div className="flex gap-2"><input type="number" value={form.quantity} onChange={e => setForm({...form, quantity: Number(e.target.value)})} className="border p-2 rounded w-20" /><select value={form.unit} onChange={e => setForm({...form, unit: e.target.value})} className="border p-2 rounded">{INGREDIENT_UNITS.map(u=><option key={u}>{u}</option>)}</select></div>
-                <input type="date" value={form.expiryDate} onChange={e => setForm({...form, expiryDate: e.target.value})} className="w-full border p-2 rounded" />
-                <button onClick={handleSave} className="w-full bg-green-600 text-white p-3 rounded-xl font-bold">저장</button>
-                {initialData && <button onClick={()=>{deleteIngredient(initialData.id); onClose();}} className="w-full text-red-500 p-2">삭제</button>}
-            </div>
-        </div>
-    );
-};
-
+// [필수 모달] 식단 추가 팝업
 const MealAddModal = () => {
     const { mealModalData, closeMealModal, addToMealPlan } = useData();
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -167,48 +148,23 @@ const MealAddModal = () => {
                 <div className="flex justify-between mb-4"><h3>식단 추가</h3><button onClick={closeMealModal}><X/></button></div>
                 <div className="font-bold text-lg mb-4">{mealModalData.recipe.name}</div>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border p-2 rounded mb-4" />
-                <div className="flex gap-2 mb-4">{['BREAKFAST', 'LUNCH', 'DINNER'].map((t) => (<button key={t} onClick={() => setType(t as any)} className={`flex-1 py-2 rounded ${type === t ? 'bg-green-600 text-white' : 'bg-gray-100'}`}>{t}</button>))}</div>
+                <div className="flex gap-2 mb-4">{['BREAKFAST', 'LUNCH', 'DINNER'].map((t) => (<button key={t} onClick={() => setType(t as any)} className={`flex-1 py-2 rounded ${type === t ? 'bg-green-600 text-white' : 'bg-gray-100'}`}>{t === 'BREAKFAST'?'아침':t==='LUNCH'?'점심':'저녁'}</button>))}</div>
                 <button onClick={() => addToMealPlan(date, type, mealModalData.recipe!)} className="w-full bg-green-600 text-white py-3 rounded-xl">추가하기</button>
             </div>
         </div>
     );
 };
 
-// [아직 파일로 분리되지 않은 페이지들 (냉장고, 마이페이지)]
-const FridgePage = () => {
-    const { fridge } = useData();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedItem, setSelectedItem] = useState<Ingredient | undefined>();
-    return (
-        <div className="p-5 pb-24">
-             <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-gray-900">나의 냉장고</h2><button onClick={()=>{setSelectedItem(undefined); setIsModalOpen(true);}} className="bg-green-600 text-white p-2 rounded-full"><Plus/></button></div>
-             <div className="grid gap-3">{fridge.map(item => (<div key={item.id} onClick={()=>{setSelectedItem(item); setIsModalOpen(true);}} className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between"><span>{item.name}</span><span className="text-blue-500 font-bold">{item.quantity}{item.unit}</span></div>))}</div>
-             <IngredientModal isOpen={isModalOpen} onClose={()=>setIsModalOpen(false)} initialData={selectedItem} />
-        </div>
-    );
-};
-
-const MyPage = () => {
-    const { user, logout } = useAuth();
-    const { userStats } = useData(); 
-    return (
-        <div className="bg-gray-50 min-h-full pb-24 p-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm mb-6 flex items-center gap-4">
-                <img src={user?.avatar} className="w-16 h-16 rounded-full" /><div className="flex-1"><h2 className="text-xl font-bold">{user?.name}님</h2><button onClick={logout} className="text-xs text-gray-400 border px-2 py-1 rounded">로그아웃</button></div>
-            </div>
-            <div className="grid grid-cols-4 gap-2 bg-white p-4 rounded-2xl shadow-sm mb-6">
-                {[ {l:'포인트',v:userStats.points},{l:'쿠폰',v:userStats.coupons},{l:'리뷰',v:userStats.reviews},{l:'배송',v:userStats.shipping} ].map((i,k)=><div key={k} className="text-center"><div className="text-xs text-gray-400">{i.l}</div><div className="font-bold">{i.v}</div></div>)}
-            </div>
-        </div>
-    );
-};
-
+// [로그인 페이지]
 const AuthPage = () => {
   const { login } = useAuth();
   return (
     <div className="h-screen flex flex-col items-center justify-center p-8 bg-white">
         <h1 className="text-3xl font-black text-green-700 mb-2">MealZip</h1>
-        <button onClick={() => login('google')} className="w-full bg-gray-100 py-4 rounded-2xl font-bold mt-10">구글 계정으로 시작하기</button>
+        <p className="text-gray-400 mb-10">건강한 식탁의 시작</p>
+        <button onClick={() => login('google')} className="w-full bg-gray-100 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
+            <span>G</span> 구글 계정으로 시작하기
+        </button>
     </div>
   );
 };
@@ -220,8 +176,9 @@ const AppRoutes = () => {
 
   return (
     <div className="bg-white min-h-screen pb-24 relative shadow-lg max-w-md mx-auto">
-      {/* 1. 전역 헤더 */}
+      {/* 1. 전역 헤더 (상단 탭 포함) */}
       <Header />
+      
       {/* 2. 필수 모달 */}
       <MealAddModal />
       
