@@ -96,8 +96,8 @@ const RecipePage = () => {
           const { matchRate } = getIngredientStatus(recipe.ingredients);
           return (
             <div key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
-              {/* 🌟 PC/모바일 이미지 비율 조정 (핵심) */}
-              <div className="relative w-full h-40 sm:h-48 md:h-56 bg-gray-100">
+              {/* 🌟 수정된 이미지 컨테이너 (반응형 높이 + cover) */}
+              <div className="relative w-full h-40 sm:h-48 bg-gray-100">
                  {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
                  
                  {matchRate > 0 && <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><Sparkles size={8} className="text-yellow-400"/> {matchRate}%</div>}
