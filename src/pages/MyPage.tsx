@@ -57,7 +57,7 @@ const MyPage = () => {
       const mergedMeals = { ...initialWeeklySchedule, ...(member.defaultMeals || {}) };
       setForm({
         name: member.name,
-        dateY: y, dateM: m, dateD: d,
+        dateY: y || 2020, dateM: m || 1, dateD: d || 1,
         gender: member.gender,
         height: String(member.height || ''), weight: String(member.weight || ''),
         diseases: member.diseases || [],
@@ -155,18 +155,12 @@ const MyPage = () => {
             <h3 className="font-bold flex items-center gap-2 text-gray-800"><Users size={16}/> 우리 가족 구성원</h3>
             <button onClick={() => openModal()} className="text-xs bg-[#FF6B6B] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">+ 추가</button>
           </div>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 px-1">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {members.map(member => (
               <div key={member.id} className="flex flex-col items-center gap-1 min-w-[64px] relative group cursor-pointer" onClick={() => openModal(member)}>
-                {/* 1. 아이콘 UI 수정 (깨짐 방지 및 X 버튼 위치 조정) */}
-                <div className="relative">
-                  <div className={`w-14 h-14 rounded-full ${member.avatarColor} flex items-center justify-center text-xl shadow-sm border-2 border-white`}>
-                    {member.name[0]}
-                  </div>
-                  <div 
-                    onClick={(e) => { e.stopPropagation(); if(confirm('삭제하시겠습니까?')) deleteMember(member.id); }} 
-                    className="absolute -top-1 -right-1 bg-white text-gray-400 rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-gray-100 hover:bg-red-500 hover:text-white transition-colors z-10"
-                  >
+                <div className={`w-14 h-14 rounded-full ${member.avatarColor} flex items-center justify-center text-xl shadow-sm border-2 border-white relative`}>
+                  {member.name[0]}
+                  <div onClick={(e) => { e.stopPropagation(); if(confirm('삭제하시겠습니까?')) deleteMember(member.id); }} className="absolute -top-1 -right-1 bg-white text-gray-400 rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-gray-100 hover:bg-red-500 hover:text-white transition-colors z-10">
                     <X size={10} strokeWidth={3} />
                   </div>
                 </div>
@@ -178,7 +172,6 @@ const MyPage = () => {
         </div>
       </div>
 
-      {/* 메뉴 리스트 */}
       <div className="bg-white">
         {[{ icon: Heart, label: '찜한 레시피' }, { icon: FileText, label: '내 글 보기' }, { icon: ShoppingBag, label: '구매 내역' }, { icon: HelpCircle, label: '고객센터' }].map((item, i) => (
           <div key={i} className="flex items-center justify-between p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50">
