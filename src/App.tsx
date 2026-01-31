@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { Flame, Wand2 } from 'lucide-react';
 import { DUMMY_RECIPES, DUMMY_POSTS, TODAY_MEAL } from './constants';
 import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Post, DefaultMealSettings } from './types';
 import { auth, googleProvider, db } from './firebase'; 
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
+// 페이지 컴포넌트
 import HomePage from './pages/Home';        
 import FridgePage from './pages/FridgePage'; 
 import RecipePage from './pages/RecipePage'; 
@@ -16,6 +16,9 @@ import MealPlanPage from './pages/MealPlanPage';
 import MyPage from './pages/MyPage';         
 import Navigation from './components/Navigation';
 import Header from './components/Header';
+
+// 전역 모달용 import
+import { X, Utensils, Heart } from 'lucide-react';
 
 interface UserStats { points: number; coupons: number; reviews: number; shipping: number; }
 
@@ -68,7 +71,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [userStats, setUserStats] = useState<UserStats>({ points: 0, coupons: 0, reviews: 0, shipping: 0 });
   const [favorites, setFavorites] = useState<string[]>([]);
   
-  // 🌟 [중요] 요일별 설정 초기값 (여기서 에러가 났을 확률 높음)
+  // 안전한 초기값 설정
   const initialSchedule = { breakfast: true, lunch: true, dinner: true };
   const [defaultSettings, setDefaultSettings] = useState<DefaultMealSettings>({ 
       MON: initialSchedule, TUE: initialSchedule, WED: initialSchedule, THU: initialSchedule, FRI: initialSchedule, SAT: initialSchedule, SUN: initialSchedule 
@@ -78,6 +81,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   useEffect(() => {
     if (!user) { setFridge([]); setMembers([]); setMealPlans([]); return; }
+    // Firebase Listeners
     const unsubs = [
         onSnapshot(collection(db, 'recipes'), (snap) => { if(!snap.empty) setRecipes(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Recipe))); }),
         onSnapshot(collection(db, 'users', user.id, 'fridge'), (snap) => setFridge(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ingredient)))),
@@ -101,6 +105,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const openMealModal = (recipe: Recipe) => setMealModalData({ isOpen: true, recipe });
   const closeMealModal = () => setMealModalData({ isOpen: false, recipe: null });
 
+  // 요일 구하기 (SUN, MON...)
   const getDayKey = (dateStr: string) => {
       const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
       return days[new Date(dateStr).getDay()];
@@ -113,6 +118,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
         const dayKey = getDayKey(date);
         targetMembers = members.filter(m => {
             const sched = m.defaultMeals?.[dayKey];
+            // 스케줄 없으면 기본적으로 true
             if (!sched) return true;
             return type === 'BREAKFAST' ? sched.breakfast : type === 'LUNCH' ? sched.lunch : sched.dinner;
         }).map(m => m.id);
@@ -148,13 +154,16 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     });
 
     let candidates = recipes;
+    // 어린이 체크
     const hasKid = eatingMembers.some(m => {
+        if(!m.birthDate) return false;
         const age = new Date().getFullYear() - new Date(m.birthDate).getFullYear();
         return age < 10;
     });
     if (hasKid) {
         candidates = candidates.filter(r => !r.name.includes('불닭') && !r.tags.includes('매움'));
     }
+    // 알러지 체크
     eatingMembers.forEach(m => {
         if (m.allergies && m.allergies.length > 0) {
             candidates = candidates.filter(r => !r.ingredients.some(ing => m.allergies.includes(ing.name)));
@@ -192,17 +201,11 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   );
 };
 
-// [추가] 레시피 상세 모달 (전역)
-import { X, Utensils } from 'lucide-react';
+// [전역 상세 모달]
 const MealDetailModal = () => {
     const { mealModalData, closeMealModal, favorites, toggleFavorite, fridge } = useData();
     const recipe = mealModalData.recipe;
     if (!mealModalData.isOpen || !recipe) return null;
-
-    const renderDifficulty = (diff: string) => {
-        const score = diff === 'LEVEL1' ? 1 : diff === 'LEVEL2' ? 3 : 5;
-        return <div className="flex text-[#FF6B6B]">{[...Array(5)].map((_, i) => <Utensils key={i} size={12} className={i < score ? "fill-[#FF6B6B]" : "text-gray-200"} style={{ transform: 'rotate(45deg)' }} />)}</div>;
-    };
 
     return (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 animate-fade-in">
@@ -239,11 +242,17 @@ const MealDetailModal = () => {
                   ))}
                 </div>
               </div>
+              <div className="p-4 border-t bg-white shrink-0 flex gap-2">
+                 <button onClick={() => toggleFavorite(recipe.id)} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${favorites.includes(recipe.id) ? 'bg-[#FF6B6B] text-white' : 'bg-gray-800 text-white'}`}>
+                   <Heart size={16} fill={favorites.includes(recipe.id) ? "currentColor" : "none"}/> {favorites.includes(recipe.id) ? '찜 취소' : '찜하기'}
+                 </button>
+              </div>
            </div>
         </div>
     );
 };
 
+// [로그인 페이지]
 const AuthPage = () => {
   const { login } = useAuth();
   return (
