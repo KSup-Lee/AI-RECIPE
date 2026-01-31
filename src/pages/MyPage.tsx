@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { User, Settings, Heart, FileText, ShoppingBag, HelpCircle, ChevronRight, Users, X, Check, Search, AlertCircle, Edit2 } from 'lucide-react';
 import { useAuth, useData } from '../App';
 import { ALLERGY_TAGS, DISEASE_TAGS, PREDEFINED_INGREDIENTS } from '../constants';
-import { Member, DefaultMealSettings } from '../types'; // Import 추가
+import { Member, DefaultMealSettings } from '../types';
 
 const getChosung = (str: string) => {
   const cho = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
@@ -20,7 +20,7 @@ const MyPage = () => {
   const { members, addMember, updateMember, deleteMember } = useData();
   
   const [showModal, setShowModal] = useState(false);
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [editingMember, setEditingMember] = useState<Member | null>(null); // 수정할 멤버
   
   // 7일치 기본 스케줄 초기값
   const initialSchedule = { breakfast: true, lunch: true, dinner: true };
@@ -29,6 +29,7 @@ const MyPage = () => {
       THU: {...initialSchedule}, FRI: {...initialSchedule}, SAT: {...initialSchedule}, SUN: {...initialSchedule}
   };
 
+  // 폼 상태
   const [form, setForm] = useState({
     name: '',
     dateY: 2020, dateM: 1, dateD: 1,
@@ -51,12 +52,12 @@ const MyPage = () => {
     }).slice(0, 10);
   }, [dislikeSearch]);
 
+  // 모달 열기 (추가/수정 분기)
   const openModal = (member?: Member) => {
     if (member) {
       setEditingMember(member);
       const [y, m, d] = member.birthDate.split('-').map(Number);
       
-      // 기존 데이터가 없을 경우를 대비해 초기값 병합
       const mergedMeals = { ...initialWeeklySchedule, ...(member.defaultMeals || {}) };
 
       setForm({
@@ -91,7 +92,7 @@ const MyPage = () => {
       hasNoDisease: form.diseases.length === 0,
       diseases: form.diseases,
       dislikes: form.dislikes,
-      avatarColor: editingMember ? editingMember.avatarColor : 'bg-blue-200',
+      avatarColor: editingMember ? editingMember.avatarColor : 'bg-blue-200', // 기존 색 유지
       relationship: 'FAMILY',
       defaultMeals: form.defaultMeals,
       proteinFocus: false, quickOnly: false, likes: [], targetCalories: 2000
@@ -105,7 +106,23 @@ const MyPage = () => {
     setShowModal(false);
   };
 
-  // 요일별 토글 함수
+  const toggleTag = (type: 'allergy'|'disease', tag: string) => {
+    if (type === 'allergy') {
+        setForm(prev => ({ ...prev, allergies: prev.allergies.includes(tag) ? prev.allergies.filter(t=>t!==tag) : [...prev.allergies, tag] }));
+    } else {
+        setForm(prev => ({ ...prev, diseases: prev.diseases.includes(tag) ? prev.diseases.filter(t=>t!==tag) : [...prev.diseases, tag] }));
+    }
+  };
+
+  const addDislike = (name: string) => {
+    if (!form.dislikes.includes(name)) setForm(prev => ({ ...prev, dislikes: [...prev.dislikes, name] }));
+    setDislikeSearch('');
+  };
+
+  const removeDislike = (name: string) => {
+    setForm(prev => ({ ...prev, dislikes: prev.dislikes.filter(d => d !== name) }));
+  };
+
   const toggleDayMeal = (day: string, type: 'breakfast'|'lunch'|'dinner') => {
       setForm(prev => ({
           ...prev,
@@ -119,7 +136,6 @@ const MyPage = () => {
       }));
   };
 
-  // 평일/주말 일괄 설정 헬퍼
   const batchSet = (days: string[], status: boolean) => {
       setForm(prev => {
           const newMeals = { ...prev.defaultMeals };
@@ -130,22 +146,6 @@ const MyPage = () => {
       });
   };
 
-  // ... (toggleTag, addDislike, removeDislike 등 기존 함수 유지)
-  const toggleTag = (type: 'allergy'|'disease', tag: string) => {
-    if (type === 'allergy') {
-        setForm(prev => ({ ...prev, allergies: prev.allergies.includes(tag) ? prev.allergies.filter(t=>t!==tag) : [...prev.allergies, tag] }));
-    } else {
-        setForm(prev => ({ ...prev, diseases: prev.diseases.includes(tag) ? prev.diseases.filter(t=>t!==tag) : [...prev.diseases, tag] }));
-    }
-  };
-  const addDislike = (name: string) => {
-    if (!form.dislikes.includes(name)) setForm(prev => ({ ...prev, dislikes: [...prev.dislikes, name] }));
-    setDislikeSearch('');
-  };
-  const removeDislike = (name: string) => {
-    setForm(prev => ({ ...prev, dislikes: prev.dislikes.filter(d => d !== name) }));
-  };
-
   const DAYS = [
       { key: 'MON', label: '월' }, { key: 'TUE', label: '화' }, { key: 'WED', label: '수' }, { key: 'THU', label: '목' }, { key: 'FRI', label: '금' },
       { key: 'SAT', label: '토' }, { key: 'SUN', label: '일' }
@@ -154,7 +154,6 @@ const MyPage = () => {
   return (
     <div className="min-h-screen bg-[#f8f9fa] pb-24">
       <div className="bg-white p-6 pt-10 mb-2">
-        {/* 상단 프로필 (기존 유지) */}
         <div className="flex items-center gap-4 mb-6">
           <img src={user?.avatar} className="w-16 h-16 rounded-full bg-gray-200" />
           <div><h2 className="text-xl font-bold">{user?.name}님</h2><p className="text-sm text-gray-500">{user?.username}</p></div>
@@ -169,8 +168,10 @@ const MyPage = () => {
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {members.map(member => (
               <div key={member.id} className="flex flex-col items-center gap-1 min-w-[64px] relative group">
+                {/* 1. 편집 가능하게 수정 (클릭 시 모달) */}
                 <div onClick={() => openModal(member)} className={`w-14 h-14 rounded-full ${member.avatarColor} flex items-center justify-center text-xl shadow-sm border-2 border-white cursor-pointer relative`}>
                   {member.name[0]}
+                  {/* 삭제 버튼 디자인 개선 */}
                   <button 
                     onClick={(e) => { e.stopPropagation(); if(confirm('삭제하시겠습니까?')) deleteMember(member.id); }} 
                     className="absolute -top-1 -right-1 bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-md border border-white hover:bg-red-500 z-10"
@@ -186,7 +187,7 @@ const MyPage = () => {
         </div>
       </div>
 
-      {/* 메뉴 리스트 (기존 유지) */}
+      {/* 메뉴 리스트 */}
       <div className="bg-white">
         {[{ icon: Heart, label: '찜한 레시피' }, { icon: FileText, label: '내 글 보기' }, { icon: ShoppingBag, label: '구매 내역' }, { icon: HelpCircle, label: '고객센터' }].map((item, i) => (
           <div key={i} className="flex items-center justify-between p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50">
@@ -225,8 +226,7 @@ const MyPage = () => {
                         <input type="number" placeholder="몸무게(kg)" value={form.weight} onChange={e=>setForm({...form, weight: e.target.value})} className="flex-1 border p-2 rounded-lg text-sm"/>
                     </div>
                 </section>
-
-                {/* 2. 건강/식습관 (기존 유지) */}
+                {/* 2. 건강/식습관 */}
                 <section>
                     <label className="text-xs font-bold text-[#FF6B6B] mb-2 block">건강 및 식습관</label>
                     <div className="mb-3">
@@ -242,8 +242,7 @@ const MyPage = () => {
                         </div>
                     </div>
                 </section>
-
-                {/* 3. 싫어하는 재료 (기존 유지) */}
+                {/* 3. 싫어하는 재료 */}
                 <section>
                     <label className="text-xs font-bold text-[#FF6B6B] mb-2 block flex items-center gap-1"><AlertCircle size={12}/> 싫어하는 재료</label>
                     <div className="flex flex-wrap gap-2 mb-2">
@@ -263,7 +262,6 @@ const MyPage = () => {
                         )}
                     </div>
                 </section>
-
                 {/* 4. 요일별 식사 스케줄 (7일 그리드) */}
                 <section>
                     <div className="flex justify-between items-center mb-2">
