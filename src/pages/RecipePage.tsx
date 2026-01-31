@@ -24,11 +24,9 @@ const RecipePage = () => {
   const [cuisineFilter, setCuisineFilter] = useState('ALL');
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
 
-  // 4. 스크롤 감지용 상태 (헤더 숨김/표시)
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
-  // 3. 식단 추가 모달 상태
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [planTargetRecipe, setPlanTargetRecipe] = useState<any>(null);
   const [planDate, setPlanDate] = useState(new Date().toISOString().split('T')[0]);
@@ -40,28 +38,22 @@ const RecipePage = () => {
     });
   }, []);
 
-  // 스크롤 이벤트 핸들러
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setShowHeader(false); // 내리면 숨김
-      } else {
-        setShowHeader(true); // 올리면 표시
-      }
+      if (currentScrollY > lastScrollY && currentScrollY > 100) { setShowHeader(false); } 
+      else { setShowHeader(true); }
       setLastScrollY(currentScrollY);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  // 식단 추가 핸들러
   const handleAddToPlan = () => {
     if (planTargetRecipe) {
       addToMealPlan(planDate, planType, planTargetRecipe);
       setIsPlanModalOpen(false);
       setPlanTargetRecipe(null);
-      alert('식단에 추가되었습니다!');
     }
   };
 
@@ -95,8 +87,6 @@ const RecipePage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] px-4 pb-24">
-      
-      {/* 4. 스마트 헤더 (스크롤에 따라 숨김/표시) */}
       <div className={`sticky top-0 z-30 bg-[#f8f9fa] pt-2 pb-2 transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="flex bg-white p-1 rounded-xl mb-3 shadow-sm overflow-x-auto no-scrollbar">
           {[{ id: 'RECOMMEND', label: '추천요리' }, { id: 'NAENGPA', label: '냉파요리' }, { id: 'FAVORITE', label: '찜한요리' }, { id: 'CUSTOM', label: '나만의폴더' }].map(t => (
@@ -127,9 +117,9 @@ const RecipePage = () => {
           const { matchRate } = getIngredientStatus(recipe.ingredients);
           return (
             <div key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
-              <div className="relative aspect-square bg-gray-100">
-                 {/* 6. 모바일 이미지 이슈 해결: w-full h-full object-cover 확인 */}
-                 {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
+              {/* 2. 모바일 이미지 수정: aspect-square 강제 적용 및 object-cover 확인 */}
+              <div className="relative w-full aspect-square bg-gray-100">
+                 {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover absolute inset-0" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
                  
                  {matchRate > 0 && (
                    <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -137,11 +127,7 @@ const RecipePage = () => {
                    </div>
                  )}
 
-                 {/* 3. 식단 추가 버튼 (카드 위) */}
-                 <button 
-                   onClick={(e) => { e.stopPropagation(); setPlanTargetRecipe(recipe); setIsPlanModalOpen(true); }}
-                   className="absolute bottom-2 right-2 bg-white/90 p-1.5 rounded-full text-[#FF6B6B] shadow-md hover:bg-white transition-colors"
-                 >
+                 <button onClick={(e) => { e.stopPropagation(); setPlanTargetRecipe(recipe); setIsPlanModalOpen(true); }} className="absolute bottom-2 right-2 bg-white/90 p-1.5 rounded-full text-[#FF6B6B] shadow-md hover:bg-white transition-colors">
                    <CalendarPlus size={16} />
                  </button>
               </div>
@@ -158,7 +144,6 @@ const RecipePage = () => {
         })}
       </div>
 
-      {/* 상세 보기 모달 */}
       {selectedRecipe && (
         <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 animate-fade-in">
            <div className="bg-white w-full max-w-md h-[85vh] rounded-3xl relative flex flex-col overflow-hidden animate-slide-up">
@@ -172,7 +157,7 @@ const RecipePage = () => {
               <div className="flex-1 overflow-y-auto p-6 bg-white">
                 <h2 className="text-2xl font-black text-gray-900 mb-2">{selectedRecipe.name}</h2>
                 <p className="text-gray-500 text-sm mb-6 leading-relaxed">{selectedRecipe.description}</p>
-                <h3 className="font-bold text-gray-800 mb-3 text-lg">재료 체크</h3>
+                <h3 className="font-bold text-gray-800 mb-3 text-lg">재료 준비</h3>
                 <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
                   {getIngredientStatus(selectedRecipe.ingredients).analysis.map((ing: any, i: number) => (
                     <div key={i} className="flex justify-between items-center text-sm">
@@ -184,7 +169,7 @@ const RecipePage = () => {
                     </div>
                   ))}
                 </div>
-                <h3 className="font-bold text-gray-800 mb-3 text-lg">조리법</h3>
+                <h3 className="font-bold text-gray-800 mb-3 text-lg">조리 순서</h3>
                 <div className="space-y-4 text-sm text-gray-600 pb-10">
                   {selectedRecipe.steps?.map((step: string, i: number) => (
                      <div key={i} className="flex gap-4"><span className="bg-[#FF6B6B] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0">{i+1}</span><p className="leading-relaxed pt-0.5">{step}</p></div>
@@ -201,13 +186,11 @@ const RecipePage = () => {
         </div>
       )}
 
-      {/* 3. 식단 추가 팝업 (간단 모달) */}
       {isPlanModalOpen && (
         <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-5 animate-fade-in">
           <div className="bg-white w-full max-w-xs rounded-2xl p-5 animate-slide-up">
             <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">📅 식단에 추가하기</h3>
             <p className="text-center text-gray-600 mb-4 text-sm font-bold">{planTargetRecipe?.name}</p>
-            
             <div className="space-y-3 mb-6">
               <div>
                 <label className="text-xs text-gray-400 block mb-1">날짜</label>
@@ -224,7 +207,6 @@ const RecipePage = () => {
                 </div>
               </div>
             </div>
-            
             <div className="flex gap-2">
               <button onClick={() => setIsPlanModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-500">취소</button>
               <button onClick={handleAddToPlan} className="flex-1 bg-[#FF6B6B] text-white py-3 rounded-xl font-bold">추가</button>
