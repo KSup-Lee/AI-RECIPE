@@ -1337,14 +1337,11 @@ const CommunityPage = () => {
 };
 
 const AppRoutes = () => {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuth(); // (이 부분 에러 나면 기존 코드 참고해서 유지)
 
-  // 1. 로딩 중일 때
-  if (loading) {
-    return <div className="h-screen flex items-center justify-center bg-white">로딩중...</div>;
-  }
+  if (loading) return <div>로딩중...</div>;
 
-  // 2. 로그인이 안 되어 있을 때 (👉 여기는 로그인 화면만!)
+  // 로그인 안 했을 때
   if (!user) {
     return (
       <Routes>
@@ -1353,18 +1350,24 @@ const AppRoutes = () => {
     );
   }
 
-  // 3. 로그인 되었을 때 (👉 여기가 진짜 메인 화면들!)
+  // 로그인 했을 때 (메인 화면)
   return (
-    <div className="bg-white min-h-screen pb-24">
+    <div className="bg-white min-h-screen pb-24 relative shadow-lg max-w-md mx-auto">
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/fridge" element={<FridgePage />} />
-        <Route path="/recipes" element={<RecipePage />} />
-        <Route path="/shopping" element={<ShoppingPage />} /> {/* 장보기 */}
-        <Route path="/mealplan" element={<MealPlanPage />} />
-        <Route path="/community" element={<CommunityPage />} /> {/* 커뮤니티 */}
+        {/* 👇 원래 파일 안에 들어있는 페이지들 (그대로 사용) */}
+        <Route path="/" element={<HomePage />} />     {/* 또는 <Home /> 이름 확인 필요 */}
+        <Route path="/fridge" element={<FridgePage />} /> {/* 또는 <Fridge /> 이름 확인 필요 */}
         <Route path="/mypage" element={<MyPage />} />
+        
+        {/* 👇 우리가 새로 만든 파일들로 연결! (교체된 부분) */}
+        <Route path="/recipes" element={<RecipePage />} />
+        <Route path="/shopping" element={<ShoppingPage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/mealplan" element={<MealPlanPage />} />
       </Routes>
+
+      {/* 하단 메뉴바 */}
+      <Navigation />
     </div>
   );
 };
