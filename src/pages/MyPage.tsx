@@ -1,93 +1,124 @@
 import React, { useState } from 'react';
-import { User, Settings, Heart, FileText, ShoppingBag, HelpCircle, ChevronRight, Users, Plus } from 'lucide-react';
+import { User, Settings, Heart, FileText, ShoppingBag, HelpCircle, ChevronRight, Users, X } from 'lucide-react';
 import { useAuth, useData } from '../App';
+import { ALLERGY_TAGS } from '../constants';
 
 const MyPage = () => {
   const { user, logout } = useAuth();
-  const { members, addMember, deleteMember } = useData(); // App.tsx의 DataContext 사용
-  const [showMemberForm, setShowMemberForm] = useState(false);
-  const [newMemberName, setNewMemberName] = useState('');
+  const { members, addMember, deleteMember } = useData();
+  
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({ name: '', birthDate: '', allergies: [] as string[], dislikes: '' });
 
   const handleAddMember = () => {
-    if (newMemberName) {
-      addMember({ 
-        id: Date.now().toString(), name: newMemberName, 
-        gender: 'M', birthDate: '2020-01-01', avatarColor: 'bg-blue-100', 
-        relationship: 'FAMILY', hasNoAllergy: true, allergies: [], hasNoDisease: true, diseases: [], proteinFocus: false, quickOnly: false, likes: [], dislikes: [], targetCalories: 2000 
-      });
-      setNewMemberName('');
-      setShowMemberForm(false);
-    }
+    if (!form.name) return;
+    addMember({
+      id: Date.now().toString(),
+      name: form.name,
+      birthDate: form.birthDate,
+      gender: 'M',
+      allergies: form.allergies,
+      dislikes: form.dislikes.split(','),
+      avatarColor: 'bg-blue-200',
+      relationship: 'FAMILY',
+      hasNoAllergy: form.allergies.length === 0,
+      hasNoDisease: true, diseases: [], proteinFocus: false, quickOnly: false, likes: [], targetCalories: 2000
+    });
+    setShowModal(false);
+    setForm({ name: '', birthDate: '', allergies: [], dislikes: '' });
   };
 
-  const MENU_LIST = [
-    { icon: Heart, label: '찜한 레시피' },
-    { icon: FileText, label: '내가 쓴 글' },
-    { icon: ShoppingBag, label: '구매 내역' },
-    { icon: HelpCircle, label: '고객센터' },
-  ];
+  const toggleAllergy = (tag: string) => {
+    setForm(prev => ({
+      ...prev,
+      allergies: prev.allergies.includes(tag) ? prev.allergies.filter(t => t !== tag) : [...prev.allergies, tag]
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] pb-24">
-      {/* 상단 프로필 */}
       <div className="bg-white p-6 pt-10 mb-2">
         <div className="flex items-center gap-4 mb-6">
-          <img src={user?.avatar} className="w-16 h-16 rounded-full bg-gray-200" alt="프로필" />
+          <img src={user?.avatar} className="w-16 h-16 rounded-full bg-gray-200" />
           <div>
-            <h2 className="text-xl font-bold">{user?.name || '사용자'}님</h2>
+            <h2 className="text-xl font-bold">{user?.name}님</h2>
             <p className="text-sm text-gray-500">{user?.username}</p>
           </div>
           <button onClick={logout} className="ml-auto text-xs border px-3 py-1 rounded-full text-gray-500">로그아웃</button>
         </div>
 
-        {/* 11. 구성원 관리 복구 */}
-        <div className="bg-gray-50 rounded-2xl p-4">
+        {/* 구성원 관리 */}
+        <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold flex items-center gap-2"><Users size={16}/> 우리 가족 구성원</h3>
-            <button onClick={() => setShowMemberForm(!showMemberForm)} className="text-xs text-[#2E7D32] font-bold">+ 추가</button>
+            <h3 className="font-bold flex items-center gap-2 text-gray-800"><Users size={16}/> 우리 가족 구성원</h3>
+            <button onClick={() => setShowModal(true)} className="text-xs bg-[#FF6B6B] text-white px-2 py-1 rounded font-bold">+ 추가</button>
           </div>
-          
-          {showMemberForm && (
-            <div className="flex gap-2 mb-3">
-              <input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="이름 입력" className="border p-1 text-sm rounded flex-1" />
-              <button onClick={handleAddMember} className="bg-[#2E7D32] text-white px-3 rounded text-sm">확인</button>
-            </div>
-          )}
-
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             {members.map(member => (
-              <div key={member.id} className="flex flex-col items-center gap-1 min-w-[60px]">
-                <div className={`w-10 h-10 rounded-full ${member.avatarColor || 'bg-yellow-100'} flex items-center justify-center text-lg shadow-sm relative group`}>
+              <div key={member.id} className="flex flex-col items-center gap-1 min-w-[60px] relative group">
+                <div className={`w-12 h-12 rounded-full ${member.avatarColor} flex items-center justify-center text-lg shadow-sm border-2 border-white`}>
                   {member.name[0]}
-                  <button onClick={() => deleteMember(member.id)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100">×</button>
                 </div>
-                <span className="text-xs text-gray-600">{member.name}</span>
+                <span className="text-xs text-gray-600 font-bold">{member.name}</span>
+                <button onClick={() => deleteMember(member.id)} className="absolute -top-1 -right-1 bg-red-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] shadow-sm">×</button>
               </div>
             ))}
-            {members.length === 0 && <span className="text-xs text-gray-400 py-2">가족을 등록해보세요</span>}
           </div>
         </div>
       </div>
 
       {/* 메뉴 리스트 */}
       <div className="bg-white">
-        {MENU_LIST.map((item, idx) => (
-          <div key={idx} className="flex items-center justify-between p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50">
+        {[
+          { icon: Heart, label: '찜한 레시피' },
+          { icon: FileText, label: '내 글 보기' },
+          { icon: ShoppingBag, label: '구매 내역' },
+          { icon: HelpCircle, label: '고객센터' },
+        ].map((item, i) => (
+          <div key={i} className="flex items-center justify-between p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50">
             <div className="flex items-center gap-3 text-gray-700">
-              <item.icon size={20} />
+              <item.icon size={20} className="text-gray-400" />
               <span className="font-medium">{item.label}</span>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </div>
         ))}
-        <div className="flex items-center justify-between p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 text-gray-400">
-            <div className="flex items-center gap-3">
-              <Settings size={20} />
-              <span className="font-medium">앱 설정</span>
-            </div>
-            <ChevronRight size={16} />
-        </div>
       </div>
+
+      {/* 구성원 추가 모달 */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5">
+           <div className="bg-white w-full max-w-sm rounded-2xl p-6 h-[80vh] overflow-y-auto">
+              <div className="flex justify-between mb-4"><h3 className="font-bold text-lg">가족 구성원 추가</h3><button onClick={() => setShowModal(false)}><X/></button></div>
+              
+              <div className="space-y-4">
+                <div>
+                   <label className="block text-xs text-gray-400 mb-1">이름</label>
+                   <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border p-2 rounded" placeholder="이름 입력"/>
+                </div>
+                <div>
+                   <label className="block text-xs text-gray-400 mb-1">생년월일</label>
+                   <input type="date" value={form.birthDate} onChange={e => setForm({...form, birthDate: e.target.value})} className="w-full border p-2 rounded"/>
+                </div>
+                <div>
+                   <label className="block text-xs text-gray-400 mb-1">알러지 (선택)</label>
+                   <div className="flex flex-wrap gap-2">
+                     {ALLERGY_TAGS.map(tag => (
+                       <button key={tag} onClick={() => toggleAllergy(tag)} className={`px-2 py-1 rounded text-xs border ${form.allergies.includes(tag) ? 'bg-red-50 border-red-200 text-red-500' : 'bg-white'}`}>
+                         {tag}
+                       </button>
+                     ))}
+                   </div>
+                </div>
+                <div>
+                   <label className="block text-xs text-gray-400 mb-1">싫어하는 재료 (쉼표로 구분)</label>
+                   <input value={form.dislikes} onChange={e => setForm({...form, dislikes: e.target.value})} className="w-full border p-2 rounded" placeholder="예: 오이, 당근"/>
+                </div>
+                <button onClick={handleAddMember} className="w-full bg-[#FF6B6B] text-white py-3 rounded-xl font-bold mt-4">추가하기</button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
