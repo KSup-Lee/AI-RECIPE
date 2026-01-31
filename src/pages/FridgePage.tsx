@@ -33,15 +33,13 @@ const FridgePage = () => {
   const [sortType, setSortType] = useState('EXPIRY'); 
   const [search, setSearch] = useState('');
   
-  // 자주 사는 재료 (예시)
   const [frequentItems, setFrequentItems] = useState<string[]>(['계란', '우유', '양파']); 
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [form, setForm] = useState({ name: '', quantity: 1, unit: '개', expiryDate: '', category: 'VEGETABLE' });
-  const [modalSearch, setModalSearch] = useState(''); // 모달 내 재료 검색
+  const [modalSearch, setModalSearch] = useState(''); 
 
-  // 검색 및 정렬
   const filteredItems = fridge.filter(item => {
     const matchCat = filterCat === 'ALL' || item.category === filterCat;
     const chosungSearch = getChosung(search);
@@ -66,21 +64,20 @@ const FridgePage = () => {
     setIsModalOpen(true);
   };
 
-  // 재료 선택 시 자동 입력 (소비기한 계산 포함)
+  // 🌟 재료 선택 시 자동 입력 로직 (핵심)
   const selectPredefined = (item: any) => {
     const today = new Date();
-    // 소비기한 자동 계산 (오늘 + 기본 유통기한)
-    const expiry = new Date(today.setDate(today.getDate() + (item.expiry || 7)));
+    const expiry = new Date(today.setDate(today.getDate() + (item.defaultExpiryDays || 7)));
     const expiryStr = expiry.toISOString().split('T')[0];
 
     setForm({
       ...form,
       name: item.name,
       category: item.category,
-      unit: item.unit,
+      unit: item.defaultUnit || '개',
       expiryDate: expiryStr
     });
-    setModalSearch(item.name); // 검색창에 이름 채우기
+    setModalSearch(item.name);
   };
 
   const handleSave = () => {
@@ -96,7 +93,7 @@ const FridgePage = () => {
   return (
     <div className="min-h-screen bg-[#f8f9fa] px-5 pt-6 pb-24">
       
-      {/* 1. 자주 사는 재료 */}
+      {/* 자주 사는 재료 */}
       <div className="mb-6 bg-white p-4 rounded-xl border border-gray-100">
         <div className="flex items-center gap-2 mb-3 text-gray-800 font-bold text-sm">
           <Star size={16} className="text-yellow-400 fill-yellow-400" /> 자주 사는 재료
@@ -159,7 +156,6 @@ const FridgePage = () => {
                <div>
                   <div className="font-bold text-gray-800">{item.name}</div>
                   <div className="text-xs text-gray-400 flex gap-2">
-                     {/* 👇 카테고리 한글화 적용 */}
                      <span className="text-[#FF6B6B] font-bold">{CATEGORY_LABELS[item.category] || item.category}</span>
                      <span>|</span>
                      <span>{item.expiryDate ? `~${item.expiryDate}` : '날짜미정'}</span>
@@ -177,7 +173,7 @@ const FridgePage = () => {
         ))}
       </div>
 
-      {/* 재료 추가/수정 모달 */}
+      {/* 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
           <div className="bg-white w-full max-w-sm rounded-2xl p-6 animate-slide-up h-[80vh] flex flex-col">
@@ -187,27 +183,27 @@ const FridgePage = () => {
              </div>
              
              <div className="flex-1 overflow-y-auto space-y-4">
-                {/* 1. 재료 검색 및 선택 (DB 연동) */}
+                {/* 🔍 재료 검색 및 선택 (자동완성) */}
                 {!editingItem && (
                   <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 mb-4">
-                    <label className="text-xs font-bold text-[#FF6B6B] block mb-2">🔍 자주 찾는 재료 선택 (자동입력)</label>
+                    <label className="text-xs font-bold text-[#FF6B6B] block mb-2">🔍 재료 검색 (자동입력)</label>
                     <input 
                       value={modalSearch}
                       onChange={e => setModalSearch(e.target.value)}
                       placeholder="예: 계란, 우유..."
-                      className="w-full border p-2 rounded-lg bg-white text-sm mb-2"
+                      className="w-full border p-2 rounded-lg bg-white text-sm mb-2 focus:border-[#FF6B6B] outline-none"
                     />
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {PREDEFINED_INGREDIENTS
                         .filter(p => p.name.includes(modalSearch))
-                        .slice(0, 10) // 10개까지만 표시
+                        .slice(0, 15) // 최대 15개 표시
                         .map(p => (
                           <button 
                             key={p.name} 
                             onClick={() => selectPredefined(p)}
-                            className="shrink-0 bg-white border border-orange-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm"
+                            className="shrink-0 bg-white border border-orange-200 text-gray-600 px-3 py-2 rounded-lg text-xs font-bold shadow-sm hover:bg-orange-100 transition-colors"
                           >
-                            {p.icon} {p.name}
+                            <span className="mr-1">{p.icon}</span>{p.name}
                           </button>
                         ))}
                     </div>
@@ -254,7 +250,7 @@ const FridgePage = () => {
                 </div>
              </div>
              
-             <button onClick={handleSave} className="w-full bg-[#FF6B6B] text-white py-4 rounded-xl font-bold mt-4 shadow-md">
+             <button onClick={handleSave} className="w-full bg-[#FF6B6B] text-white py-4 rounded-xl font-bold mt-4 shadow-md hover:bg-[#FF5252] transition-colors">
                {editingItem ? '수정 완료' : '등록하기'}
              </button>
           </div>
