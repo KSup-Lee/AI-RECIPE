@@ -9,7 +9,7 @@ const Navigation = () => {
   const NAV_ITEMS = [
     { id: 'MEAL', label: '식단', icon: Calendar, path: '/mealplan' },
     { id: 'RECIPE', label: '레시피', icon: Utensils, path: '/recipes' },
-    { id: 'HOME', label: '홈', icon: Home, path: '/', isMain: true }, // 홈을 가운데로
+    { id: 'HOME', label: '홈', icon: Home, path: '/', isMain: true },
     { id: 'FRIDGE', label: '냉장고', icon: Refrigerator, path: '/fridge' },
     { id: 'MY', label: '마이', icon: User, path: '/mypage' },
   ];
@@ -22,7 +22,7 @@ const Navigation = () => {
         if (item.isMain) {
           return (
             <button key={item.id} onClick={() => navigate(item.path)} className="relative -top-5">
-               <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-white transition-transform active:scale-95 ${isActive ? 'bg-[#2E7D32] text-white' : 'bg-gray-100 text-gray-400'}`}>
+               <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-white transition-transform active:scale-95 ${isActive ? 'bg-[#FF6B6B] text-white' : 'bg-gray-100 text-gray-400'}`}>
                  <item.icon size={24} />
                </div>
             </button>
@@ -33,7 +33,7 @@ const Navigation = () => {
           <button 
             key={item.id} 
             onClick={() => navigate(item.path)} 
-            className={`flex flex-col items-center gap-1 w-14 transition-colors ${isActive ? 'text-[#2E7D32]' : 'text-gray-300'}`}
+            className={`flex flex-col items-center gap-1 w-14 transition-colors ${isActive ? 'text-[#FF6B6B]' : 'text-gray-300'}`}
           >
             <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
             <span className="text-[10px] font-bold">{item.label}</span>
