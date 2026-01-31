@@ -1,17 +1,24 @@
 // 사용자 권한
-export enum UserRole { ADMIN = 'ADMIN', USER = 'USER' }
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
 
 // 기본 사용자 정보
 export interface User {
-  id: string; username: string; role: UserRole; name: string; avatar: string;
+  id: string;
+  username: string;
+  role: UserRole;
+  name: string;
+  avatar: string;
 }
 
-// 식사 스케줄 설정 타입 (요일별)
+// [핵심 수정] 요일별 식사 설정 타입 (Key가 문자열)
 export interface DefaultMealSettings {
   [key: string]: { breakfast: boolean; lunch: boolean; dinner: boolean };
 }
 
-// [핵심 수정] 가족 구성원 (상세 정보 포함)
+// 가족 구성원
 export interface Member {
   id: string;
   name: string;
@@ -20,7 +27,7 @@ export interface Member {
   avatarColor: string;
   relationship: 'ME' | 'FAMILY';
 
-  // 상세 신체 정보 (선택사항)
+  // 신체 정보
   height?: number;
   weight?: number;
   
@@ -29,12 +36,11 @@ export interface Member {
   allergies: string[];
   hasNoDisease: boolean;
   diseases: string[];
-  dislikes: string[]; // 싫어하는 재료
+  dislikes: string[];
   
-  // 식사 스케줄 (요일별 식사 여부)
-  defaultMeals?: DefaultMealSettings; // ?는 데이터가 없을 경우를 대비함
+  // [연결] 식사 스케줄
+  defaultMeals?: DefaultMealSettings; // 데이터가 없을 수도 있으므로 ? 추가
 
-  // 기타 선호도
   proteinFocus: boolean; 
   quickOnly: boolean; 
   likes: string[];
@@ -47,7 +53,6 @@ export interface Ingredient {
   id: string; name: string; category: IngredientCategory; quantity: number; unit: string; expiryDate: string; storage: 'FRIDGE' | 'FREEZER' | 'ROOM'; image: string; isFavorite?: boolean;
 }
 
-// 미리 정의된 재료 DB
 export interface PredefinedIngredient {
   name: string; category: IngredientCategory; icon: string; defaultStorage: 'FRIDGE' | 'FREEZER' | 'ROOM'; defaultExpiryDays: number; defaultUnit: string; baseGram?: number; suggestedUnits?: string[]; expiry?: number; unit?: string;
 }
