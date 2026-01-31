@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
+import { Flame, Wand2 } from 'lucide-react';
 import { DUMMY_RECIPES, DUMMY_POSTS, TODAY_MEAL } from './constants';
 import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Post, DefaultMealSettings } from './types';
 import { auth, googleProvider, db } from './firebase'; 
@@ -67,7 +68,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [userStats, setUserStats] = useState<UserStats>({ points: 0, coupons: 0, reviews: 0, shipping: 0 });
   const [favorites, setFavorites] = useState<string[]>([]);
   
-  // 기본 설정 (초기값: 매일 세끼 다 먹음)
+  // 🌟 [중요] 요일별 설정 초기값 (여기서 에러가 났을 확률 높음)
   const initialSchedule = { breakfast: true, lunch: true, dinner: true };
   const [defaultSettings, setDefaultSettings] = useState<DefaultMealSettings>({ 
       MON: initialSchedule, TUE: initialSchedule, WED: initialSchedule, THU: initialSchedule, FRI: initialSchedule, SAT: initialSchedule, SUN: initialSchedule 
@@ -100,27 +101,22 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const openMealModal = (recipe: Recipe) => setMealModalData({ isOpen: true, recipe });
   const closeMealModal = () => setMealModalData({ isOpen: false, recipe: null });
 
-  // [수정] 요일 코드 변환 (0:일 -> SUN)
   const getDayKey = (dateStr: string) => {
       const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
       return days[new Date(dateStr).getDay()];
   };
 
-  // [수정] 식단 추가 로직 (요일별 스케줄 반영)
   const addToMealPlan = async (date: string, type: 'BREAKFAST'|'LUNCH'|'DINNER', recipe: Recipe, specificMembers?: string[]) => {
     if (!user) return;
-    
     let targetMembers = specificMembers;
     if (!targetMembers) {
         const dayKey = getDayKey(date);
         targetMembers = members.filter(m => {
             const sched = m.defaultMeals?.[dayKey];
-            // 스케줄 정보가 없으면 기본적으로 true(먹음)로 간주
             if (!sched) return true;
             return type === 'BREAKFAST' ? sched.breakfast : type === 'LUNCH' ? sched.lunch : sched.dinner;
         }).map(m => m.id);
     }
-
     const currentPlan = mealPlans.find(p => p.date === date) || { date, meals: { BREAKFAST: [], LUNCH: [], DINNER: [] } };
     const updatedMeals = { ...currentPlan.meals };
     updatedMeals[type] = [...updatedMeals[type], { recipe, memberIds: targetMembers || [], isCompleted: false }];
@@ -143,11 +139,8 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     await setDoc(doc(db, 'users', user.id, 'mealPlans', date), { meals: updatedMeals });
   };
 
-  // [수정] 스마트 추천 로직 (요일별 스케줄 반영)
   const getRecommendedRecipes = (type: 'BREAKFAST' | 'LUNCH' | 'DINNER', date: string): Recipe[] => {
     const dayKey = getDayKey(date);
-    
-    // 1. 해당 요일, 해당 끼니에 먹는 사람 파악
     const eatingMembers = members.filter(m => {
         const sched = m.defaultMeals?.[dayKey];
         if (!sched) return true;
@@ -155,8 +148,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     });
 
     let candidates = recipes;
-
-    // (1) 어린이 매운거 제외
     const hasKid = eatingMembers.some(m => {
         const age = new Date().getFullYear() - new Date(m.birthDate).getFullYear();
         return age < 10;
@@ -164,15 +155,11 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     if (hasKid) {
         candidates = candidates.filter(r => !r.name.includes('불닭') && !r.tags.includes('매움'));
     }
-
-    // (2) 알러지 체크
     eatingMembers.forEach(m => {
         if (m.allergies && m.allergies.length > 0) {
             candidates = candidates.filter(r => !r.ingredients.some(ing => m.allergies.includes(ing.name)));
         }
     });
-
-    // 3. 기피재료 우선순위
     return candidates.sort((a, b) => {
         const aWarnings = checkRecipeWarnings(a, eatingMembers.map(m => m.id)).length;
         const bWarnings = checkRecipeWarnings(b, eatingMembers.map(m => m.id)).length;
@@ -183,7 +170,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const checkRecipeWarnings = (recipe: Recipe, memberIds: string[]): string[] => {
     const warnings: string[] = [];
     const eaters = members.filter(m => memberIds.includes(m.id));
-    
     eaters.forEach(m => {
         m.dislikes?.forEach(dislike => {
             if (recipe.ingredients.some(ing => ing.name.includes(dislike))) {
@@ -206,46 +192,8 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   );
 };
 
-// [AuthPage, AppRoutes, App 컴포넌트는 기존과 동일하므로 유지]
-const AuthPage = () => {
-  const { login } = useAuth();
-  return (
-    <div className="h-screen flex flex-col items-center justify-center p-8 bg-white">
-        <h1 className="text-3xl font-black text-[#FF6B6B] mb-2">MealZip</h1>
-        <p className="text-gray-400 mb-10">건강한 식탁의 시작</p>
-        <button onClick={() => login('google')} className="w-full bg-gray-100 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
-            <span>G</span> 구글 계정으로 시작하기
-        </button>
-    </div>
-  );
-};
-
-const AppRoutes = () => {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="h-screen flex items-center justify-center bg-white">로딩중...</div>;
-  if (!user) return <Routes><Route path="*" element={<AuthPage />} /></Routes>;
-
-  return (
-    <div className="bg-white min-h-screen pb-24 relative shadow-lg max-w-md mx-auto">
-      <Header />
-      {/* 상세 보기용 모달 (전역 레벨) */}
-      <MealDetailModal /> 
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/fridge" element={<FridgePage />} />
-        <Route path="/recipes" element={<RecipePage />} />
-        <Route path="/shopping" element={<ShoppingPage />} />
-        <Route path="/community" element={<CommunityPage />} />
-        <Route path="/mealplan" element={<MealPlanPage />} />
-        <Route path="/mypage" element={<MyPage />} />
-      </Routes>
-      <Navigation />
-    </div>
-  );
-};
-
-// [추가] 레시피 상세 모달 (전역에서 호출 가능하도록)
-import { X, Clock, Heart, Sparkles, ChefHat, Utensils } from 'lucide-react';
+// [추가] 레시피 상세 모달 (전역)
+import { X, Utensils } from 'lucide-react';
 const MealDetailModal = () => {
     const { mealModalData, closeMealModal, favorites, toggleFavorite, fridge } = useData();
     const recipe = mealModalData.recipe;
@@ -269,7 +217,6 @@ const MealDetailModal = () => {
               <div className="flex-1 overflow-y-auto p-6 bg-white">
                 <h2 className="text-2xl font-black text-gray-900 mb-2">{recipe.name}</h2>
                 <p className="text-gray-500 text-sm mb-6 leading-relaxed">{recipe.description}</p>
-                
                 <h3 className="font-bold text-gray-800 mb-3 text-lg">재료</h3>
                 <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
                   {recipe.ingredients?.map((ing: any, i: number) => {
@@ -285,7 +232,6 @@ const MealDetailModal = () => {
                      );
                   })}
                 </div>
-
                 <h3 className="font-bold text-gray-800 mb-3 text-lg">조리법</h3>
                 <div className="space-y-4 text-sm text-gray-600 pb-10">
                   {recipe.steps?.map((step: string, i: number) => (
@@ -293,14 +239,43 @@ const MealDetailModal = () => {
                   ))}
                 </div>
               </div>
-              <div className="p-4 border-t bg-white shrink-0 flex gap-2">
-                 <button onClick={() => toggleFavorite(recipe.id)} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${favorites.includes(recipe.id) ? 'bg-[#FF6B6B] text-white' : 'bg-gray-800 text-white'}`}>
-                   <Heart size={16} fill={favorites.includes(recipe.id) ? "currentColor" : "none"}/> {favorites.includes(recipe.id) ? '찜 취소' : '찜하기'}
-                 </button>
-              </div>
            </div>
         </div>
     );
+};
+
+const AuthPage = () => {
+  const { login } = useAuth();
+  return (
+    <div className="h-screen flex flex-col items-center justify-center p-8 bg-white">
+        <h1 className="text-3xl font-black text-[#FF6B6B] mb-2">MealZip</h1>
+        <p className="text-gray-400 mb-10">건강한 식탁의 시작</p>
+        <button onClick={() => login('google')} className="w-full bg-gray-100 py-4 rounded-2xl font-bold flex items-center justify-center gap-2"><span>G</span> 구글 계정으로 시작하기</button>
+    </div>
+  );
+};
+
+const AppRoutes = () => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="h-screen flex items-center justify-center bg-white">로딩중...</div>;
+  if (!user) return <Routes><Route path="*" element={<AuthPage />} /></Routes>;
+
+  return (
+    <div className="bg-white min-h-screen pb-24 relative shadow-lg max-w-md mx-auto">
+      <Header />
+      <MealDetailModal /> 
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/fridge" element={<FridgePage />} />
+        <Route path="/recipes" element={<RecipePage />} />
+        <Route path="/shopping" element={<ShoppingPage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/mealplan" element={<MealPlanPage />} />
+        <Route path="/mypage" element={<MyPage />} />
+      </Routes>
+      <Navigation />
+    </div>
+  );
 };
 
 const App = () => (
