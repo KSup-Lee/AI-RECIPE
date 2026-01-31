@@ -9,12 +9,11 @@ const MealPlanPage = () => {
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
   const [search, setSearch] = useState('');
 
-  // 🔴 [오류 수정 완료] 문자열을 Date 객체로 변환 후 계산
   const getWeekDates = () => {
     const dates = [];
-    const current = new Date(selectedDate); // 문자열 -> 날짜 객체 변환
+    const current = new Date(selectedDate);
     const start = new Date(current);
-    start.setDate(current.getDate() - current.getDay()); // 이제 에러 안 남!
+    start.setDate(current.getDate() - current.getDay());
 
     for (let i = 0; i < 7; i++) {
       const d = new Date(start);
@@ -28,11 +27,14 @@ const MealPlanPage = () => {
   const todayPlan = mealPlans.find(p => p.date === dateStr);
   const recommendedRecipes = getRecommendedRecipes(targetType, dateStr).filter(r => r.name.includes(search));
 
+  // 🌟 [개선] 랜덤 추천: 상위 5개 중 랜덤으로 하나 선택
   const handleAutoRecommend = (type: 'BREAKFAST' | 'LUNCH' | 'DINNER') => {
     const candidates = getRecommendedRecipes(type, dateStr);
     if (candidates.length > 0) {
-      const bestRecipe = candidates[0];
-      addToMealPlan(dateStr, type, bestRecipe);
+      // 상위 5개(혹은 그 이하) 중에서 랜덤 선택
+      const topCandidates = candidates.slice(0, 5);
+      const randomRecipe = topCandidates[Math.floor(Math.random() * topCandidates.length)];
+      addToMealPlan(dateStr, type, randomRecipe);
     } else {
       alert('조건에 맞는 추천 레시피가 없어요.');
     }
@@ -56,9 +58,15 @@ const MealPlanPage = () => {
     }
   };
 
+  // 🌟 [수정] 칼로리 계산: 먹는 사람 수 반영
   let totalCalories = 0;
   ['BREAKFAST', 'LUNCH', 'DINNER'].forEach(type => {
-    todayPlan?.meals[type as 'BREAKFAST'].forEach(item => totalCalories += (item.recipe.calories || 500));
+    const meals = todayPlan?.meals[type as 'BREAKFAST'] || [];
+    meals.forEach(item => {
+        const recipeCal = item.recipe.calories || 500;
+        const eatersCount = item.memberIds.length; // 먹는 사람 수
+        totalCalories += (recipeCal * eatersCount);
+    });
   });
 
   return (
