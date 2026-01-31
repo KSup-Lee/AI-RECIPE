@@ -9,8 +9,15 @@ import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
-import ShoppingPage from './pages/ShoppingPage';
-import CommunityPage from './pages/CommunityPage'; // 파일 생성하셨다면 연결
+import HomePage from './pages/Home';        // 홈
+import FridgePage from './pages/FridgePage'; // 냉장고
+import RecipePage from './pages/RecipePage'; // 레시피
+import MyPage from './pages/MyPage';         // 마이페이지
+
+// ✨ 이번에 추가한 3가지 기능 (장보기, 커뮤니티, 식단표)
+import ShoppingPage from './pages/ShoppingPage';   // 장보기
+import CommunityPage from './pages/CommunityPage'; // 커뮤니티
+import MealPlanPage from './pages/MealPlanPage';   // 식단표
 
 // 기존 import들 아래에 추가하세요
 import Navigation from './components/Navigation';
@@ -1350,10 +1357,11 @@ const AppRoutes = () => {
   return (
     <div className="bg-white min-h-screen pb-24">
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<Home />} />
         <Route path="/fridge" element={<FridgePage />} />
         <Route path="/recipes" element={<RecipePage />} />
         <Route path="/shopping" element={<ShoppingPage />} /> {/* 장보기 */}
+        <Route path="/mealplan" element={<MealPlanPage />} />
         <Route path="/community" element={<CommunityPage />} /> {/* 커뮤니티 */}
         <Route path="/mypage" element={<MyPage />} />
       </Routes>
