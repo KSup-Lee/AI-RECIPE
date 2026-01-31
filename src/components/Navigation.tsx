@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Home, Refrigerator, Utensils, User, Heart } from 'lucide-react';
+import { Home, Refrigerator, Utensils, User, ShoppingCart } from 'lucide-react'; // ShoppingCart 아이콘 추가
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const Navigation = () => {
@@ -7,13 +7,12 @@ const Navigation = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('HOME');
 
-  // 주소창(URL)이 바뀔 때마다 버튼 색깔도 알아서 바뀜!
   useEffect(() => {
     const path = location.pathname;
     if (path === '/') setActiveTab('HOME');
     else if (path === '/fridge') setActiveTab('FRIDGE');
     else if (path.includes('/recipes')) setActiveTab('RECIPE');
-    else if (path === '/community') setActiveTab('COMMUNITY');
+    else if (path === '/shopping') setActiveTab('SHOPPING'); // 장보기 탭 연결
     else if (path === '/mypage') setActiveTab('MYPAGE');
   }, [location]);
 
@@ -40,9 +39,10 @@ const Navigation = () => {
         </button>
       </div>
 
-      <button onClick={() => handleNav('/community')} className="flex flex-col items-center gap-1">
-        <Heart className={`w-6 h-6 ${getIconColor('COMMUNITY')}`} strokeWidth={2.5} />
-        <span className={`text-[10px] ${getTextColor('COMMUNITY')}`}>찜</span>
+      {/* 👇 찜(Heart) 대신 장보기(ShoppingCart)로 변경 */}
+      <button onClick={() => handleNav('/shopping')} className="flex flex-col items-center gap-1">
+        <ShoppingCart className={`w-6 h-6 ${getIconColor('SHOPPING')}`} strokeWidth={2.5} />
+        <span className={`text-[10px] ${getTextColor('SHOPPING')}`}>장보기</span>
       </button>
 
       <button onClick={() => handleNav('/mypage')} className="flex flex-col items-center gap-1">
@@ -52,6 +52,5 @@ const Navigation = () => {
     </nav>
   );
 };
-
 
 export default Navigation;
