@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, ChefHat, ShoppingCart } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase'; // firebase 경로 확인!
+import { db } from '../firebase'; 
+import { useNavigate } from 'react-router-dom'; // 페이지 이동용
 
-// 👇 귀여운 카테고리 정의
 const CUISINE_TYPES = [
   { id: 'ALL', name: '전체' },
   { id: 'KOREAN', name: '🇰🇷 한식' },
@@ -22,29 +22,24 @@ const DISH_TYPES = [
 ];
 
 const RecipePage = () => {
-  // 상태 관리
+  const navigate = useNavigate();
   const [recipes, setRecipes] = useState<any[]>([]);
   const [fridgeItems, setFridgeItems] = useState<string[]>([]);
-  const [activeSegment, setActiveSegment] = useState<'RECIPE' | 'INGREDIENT' | 'SHOP'>('RECIPE');
+  const [activeSegment, setActiveSegment] = useState<'RECIPE' | 'INGREDIENT'>('RECIPE');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // 필터 상태
   const [selectedCuisine, setSelectedCuisine] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
-  
-  // 성능 최적화 (Pagination)
   const [visibleCount, setVisibleCount] = useState(20);
 
-  // 1. 데이터 불러오기 (DB에서만!)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 냉장고 재료 가져오기
         const fridgeSnap = await getDocs(collection(db, 'fridge'));
-        const myIngredients = fridgeSnap.docs.map(doc => doc.data().name); // 필드명이 name인지 확인
+        const myIngredients = fridgeSnap.docs.map(doc => doc.data().name);
         setFridgeItems(myIngredients);
 
-        // 레시피 가져오기
+        // 🔥 가짜 데이터 없이 오직 DB에서만 가져옵니다!
         const recipeSnap = await getDocs(collection(db, 'recipes'));
         const loadedRecipes = recipeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setRecipes(loadedRecipes);
@@ -55,50 +50,42 @@ const RecipePage = () => {
     fetchData();
   }, []);
 
-  // 2. 매칭률 계산 로직 (NaN% 해결)
   const getMatchRate = (ingredients: any[]) => {
     if (!ingredients || ingredients.length === 0) return 0;
     if (fridgeItems.length === 0) return 0;
-    
-    // 재료 이름에 포함되는지 확인 (예: '김치'가 내 냉장고 '배추김치'에 포함되는지)
     const matchCount = ingredients.filter(ing => 
       fridgeItems.some(myIng => myIng.includes(ing.name) || ing.name.includes(myIng))
     ).length;
-    
     return Math.round((matchCount / ingredients.length) * 100);
   };
 
-  // 3. 필터링 & 검색 로직 (핵심!)
   const filteredData = useMemo(() => {
     let result = recipes;
-
-    // (1) 카테고리 필터
     if (selectedCuisine !== 'ALL') result = result.filter(r => r.category === selectedCuisine);
     if (selectedType !== 'ALL') result = result.filter(r => r.type === selectedType);
 
-    // (2) 검색어 필터 & 세그먼트
     if (searchTerm) {
-      if (activeSegment === 'RECIPE') {
-        result = result.filter(r => r.name.includes(searchTerm));
-      } else if (activeSegment === 'INGREDIENT') {
-        result = result.filter(r => r.ingredients.some((ing: any) => ing.name.includes(searchTerm)));
-      }
+      if (activeSegment === 'RECIPE') result = result.filter(r => r.name.includes(searchTerm));
+      else if (activeSegment === 'INGREDIENT') result = result.filter(r => r.ingredients.some((ing: any) => ing.name.includes(searchTerm)));
     }
-
-    // (3) 정렬: 검색어가 없으면 '매칭률' 순, 있으면 정확도 순
     return result.sort((a, b) => getMatchRate(b.ingredients) - getMatchRate(a.ingredients));
   }, [recipes, searchTerm, activeSegment, selectedCuisine, selectedType, fridgeItems]);
 
   return (
     <div className="min-h-screen bg-[#FFFDF9] px-5 pt-6 pb-24">
       
-      {/* 헤더: 로고 & 검색창 */}
+      {/* 👇 1. 헤더 복구: 로고 + 장바구니 버튼 */}
       <div className="sticky top-0 bg-[#FFFDF9] z-10 pb-2">
-        <h1 className="text-2xl font-black text-[#FF6B6B] mb-3 tracking-tighter flex items-center gap-2">
-          MealZip <span className="text-sm font-normal text-gray-400">오늘 뭐 먹지?</span>
-        </h1>
+        <div className="flex justify-between items-center mb-3">
+            <h1 className="text-2xl font-black text-[#FF6B6B] tracking-tighter flex items-center gap-2">
+            MealZip <span className="text-sm font-normal text-gray-400">오늘 뭐 먹지?</span>
+            </h1>
+            <button onClick={() => navigate('/shopping')} className="p-2 text-gray-400 hover:text-[#FF6B6B] transition-colors">
+                <ShoppingCart className="w-6 h-6" />
+            </button>
+        </div>
 
-        {/* 검색창 */}
+        {/* 2. 검색창 */}
         <div className="relative mb-3">
           <input 
             type="text" 
@@ -110,105 +97,50 @@ const RecipePage = () => {
           <Search className="absolute left-4 top-3.5 text-[#FFB74D] w-5 h-5" />
         </div>
 
-        {/* 세그먼트 탭 (레시피 / 재료 / 쇼핑) */}
+        {/* 3. 탭 & 필터 */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
-          {[
-            { id: 'RECIPE', label: '🍳 레시피' },
-            { id: 'INGREDIENT', label: '🥕 재료로 찾기' },
-            { id: 'SHOP', label: '🛒 쇼핑 추천' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveSegment(tab.id as any)}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                activeSegment === tab.id ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <button onClick={() => setActiveSegment('RECIPE')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeSegment === 'RECIPE' ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'}`}>🍳 레시피</button>
+          <button onClick={() => setActiveSegment('INGREDIENT')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeSegment === 'INGREDIENT' ? 'bg-white text-[#FF6B6B] shadow-sm' : 'text-gray-400'}`}>🥕 재료로 찾기</button>
         </div>
 
-        {/* 상세 필터 (가로 스크롤) */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-          <select 
-            value={selectedCuisine}
-            onChange={(e) => setSelectedCuisine(e.target.value)}
-            className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none"
-          >
+          <select value={selectedCuisine} onChange={(e) => setSelectedCuisine(e.target.value)} className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none">
             {CUISINE_TYPES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-
-          <select 
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none"
-          >
+          <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className="bg-white border border-[#FFE0B2] text-xs font-bold text-gray-600 px-3 py-2 rounded-full outline-none">
             {DISH_TYPES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
       </div>
 
-      {/* 쇼핑 탭일 때 */}
-      {activeSegment === 'SHOP' ? (
-        <div className="text-center py-20 text-gray-400">
-          <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30" />
-          <p>준비 중인 기능입니다!</p>
-        </div>
-      ) : (
-        /* 레시피 리스트 (속도 최적화: 20개씩 끊어서 보여줌) */
-        <div className="grid gap-4 mt-2">
-          {filteredData.slice(0, visibleCount).map((recipe) => {
-            const matchRate = getMatchRate(recipe.ingredients);
-            const isNaengPa = matchRate >= 50;
-
-            return (
-              <div key={recipe.id} className="bg-white rounded-2xl p-3 shadow-sm border border-transparent hover:border-[#FFE0B2] flex gap-4 transition-all">
-                {/* 이미지 */}
-                <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden shrink-0 relative">
-                  {recipe.image ? (
-                    <img src={recipe.image} alt={recipe.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>
-                  )}
-                  {isNaengPa && <div className="absolute bottom-0 w-full bg-[#FF6B6B] text-white text-[10px] font-bold text-center py-0.5">냉파추천!</div>}
+      {/* 4. 레시피 리스트 */}
+      <div className="grid gap-4 mt-2">
+        {filteredData.slice(0, visibleCount).map((recipe) => {
+          const matchRate = getMatchRate(recipe.ingredients);
+          return (
+            <div key={recipe.id} className="bg-white rounded-2xl p-3 shadow-sm border border-transparent hover:border-[#FFE0B2] flex gap-4 transition-all">
+              <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden shrink-0 relative">
+                {recipe.image ? <img src={recipe.image} alt={recipe.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
+                {matchRate >= 50 && <div className="absolute bottom-0 w-full bg-[#FF6B6B] text-white text-[10px] font-bold text-center py-0.5">냉파추천!</div>}
+              </div>
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="flex justify-between items-start">
+                  <h3 className="font-bold text-gray-800 line-clamp-1">{recipe.name}</h3>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${matchRate > 70 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>{matchRate}% 일치</span>
                 </div>
-
-                {/* 정보 */}
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="flex justify-between items-start">
-                    <h3 className="font-bold text-gray-800 line-clamp-1">{recipe.name}</h3>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${matchRate > 70 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
-                      {matchRate}% 일치
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{recipe.description || '맛있는 레시피입니다.'}</p>
-                  <div className="mt-auto pt-2 flex gap-2 text-[10px] text-gray-400">
-                    <span>⏱️ {recipe.cookingTime || 30}분</span>
-                    <span>🔥 {recipe.difficulty === 'LEVEL1' ? '쉬움' : '보통'}</span>
-                  </div>
+                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{recipe.description || '맛있는 레시피입니다.'}</p>
+                <div className="mt-auto pt-2 flex gap-2 text-[10px] text-gray-400">
+                  <span>⏱️ {recipe.cookingTime || 30}분</span>
+                  <span>🔥 {recipe.difficulty === 'LEVEL1' ? '쉬움' : '보통'}</span>
                 </div>
               </div>
-            );
-          })}
-          
-          {/* 더 보기 버튼 (속도 핵심!) */}
-          {visibleCount < filteredData.length && (
-            <button 
-              onClick={() => setVisibleCount(prev => prev + 20)}
-              className="w-full py-3 mt-4 text-sm font-bold text-[#FF6B6B] bg-orange-50 rounded-xl hover:bg-orange-100"
-            >
-              더 보기 ({filteredData.length - visibleCount}개 남음)
-            </button>
-          )}
-
-          {filteredData.length === 0 && (
-            <div className="text-center py-20 text-gray-400">
-              <p>검색 결과가 없어요 😢</p>
             </div>
-          )}
-        </div>
-      )}
+          );
+        })}
+        {visibleCount < filteredData.length && (
+          <button onClick={() => setVisibleCount(prev => prev + 20)} className="w-full py-3 mt-4 text-sm font-bold text-[#FF6B6B] bg-orange-50 rounded-xl hover:bg-orange-100">더 보기 ({filteredData.length - visibleCount}개 남음)</button>
+        )}
+      </div>
     </div>
   );
 };
