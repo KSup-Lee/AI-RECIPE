@@ -96,12 +96,17 @@ const RecipePage = () => {
           const { matchRate } = getIngredientStatus(recipe.ingredients);
           return (
             <div key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
-              {/* 🌟 수정된 이미지 컨테이너 (반응형 높이 + cover) */}
-              <div className="relative w-full h-40 sm:h-48 bg-gray-100">
-                 {recipe.image ? <img src={recipe.image} className="w-full h-full object-cover" alt={recipe.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat /></div>}
+              {/* 🌟 이미지 깨짐 방지: 비율 강제 고정 (padding-top: 100% 기법) */}
+              <div className="relative w-full pt-[100%] bg-gray-100">
+                 {recipe.image ? (
+                   <img src={recipe.image} className="absolute inset-0 w-full h-full object-cover" alt={recipe.name}/>
+                 ) : (
+                   <div className="absolute inset-0 flex items-center justify-center text-gray-300"><ChefHat /></div>
+                 )}
                  
-                 {matchRate > 0 && <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><Sparkles size={8} className="text-yellow-400"/> {matchRate}%</div>}
-                 <button onClick={(e) => { e.stopPropagation(); setPlanTargetRecipe(recipe); setIsPlanModalOpen(true); }} className="absolute bottom-2 right-2 bg-white/90 p-1.5 rounded-full text-[#FF6B6B] shadow-md hover:bg-white transition-colors"><CalendarPlus size={16} /></button>
+                 {matchRate > 0 && <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10"><Sparkles size={8} className="text-yellow-400"/> {matchRate}%</div>}
+                 
+                 <button onClick={(e) => { e.stopPropagation(); setPlanTargetRecipe(recipe); setIsPlanModalOpen(true); }} className="absolute bottom-2 right-2 bg-white/90 p-1.5 rounded-full text-[#FF6B6B] shadow-md hover:bg-white transition-colors z-10"><CalendarPlus size={16} /></button>
               </div>
               <div className="p-3">
                 <div className="text-[10px] text-[#FF6B6B] font-bold mb-1">{recipe.category}</div>
@@ -119,7 +124,7 @@ const RecipePage = () => {
       {selectedRecipe && (
         <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 animate-fade-in">
            <div className="bg-white w-full max-w-md h-[85vh] rounded-3xl relative flex flex-col overflow-hidden animate-slide-up">
-              <div className="relative h-56 bg-gray-200 shrink-0">
+              <div className="relative w-full h-56 bg-gray-200 shrink-0">
                 <img src={selectedRecipe.image} className="w-full h-full object-cover"/>
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/40 to-transparent">
                    <span className="text-white font-bold text-sm bg-black/30 px-2 py-1 rounded-lg backdrop-blur-sm">{selectedRecipe.category}</span>
