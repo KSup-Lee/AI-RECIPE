@@ -34,9 +34,12 @@ export interface Member {
   dislikes: string[]; // 기피 재료 이름 리스트 (DB에 있는 재료명)
   
   // 식사 스케줄 (요일별 식사 여부)
-  defaultMeals: {
-    weekday: { breakfast: boolean; lunch: boolean; dinner: boolean };
-    weekend: { breakfast: boolean; lunch: boolean; dinner: boolean };
+defaultMeals: DefaultMealSettings;
+
+  proteinFocus: boolean; 
+  quickOnly: boolean; 
+  likes: string[];
+  targetCalories: number;
   };
 
   // 기타 선호도 (추후 확장용)
@@ -155,8 +158,8 @@ export interface Post {
 
 // 식사 스케줄 설정 타입
 export interface DefaultMealSettings {
-  weekday: { BREAKFAST: string[]; LUNCH: string[]; DINNER: string[]; };
-  weekend: { BREAKFAST: string[]; LUNCH: string[]; DINNER: string[]; };
+[key: string]: { breakfast: boolean; lunch: boolean; dinner: boolean };
+  // Key는 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN' 사용
 }
 
 // 리뷰 및 연관 상품 (레시피 하위)
