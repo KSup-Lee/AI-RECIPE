@@ -4,7 +4,7 @@ import { useData } from '../App';
 
 const MealPlanPage = () => {
   const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, recipes, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal } = useData();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
   const [search, setSearch] = useState('');
