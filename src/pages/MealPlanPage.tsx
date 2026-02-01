@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, AlertTriangle, Wand2, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, AlertTriangle, Wand2, RefreshCw, Layers } from 'lucide-react';
 import { useData } from '../App';
 
 const MealPlanPage = () => {
-  const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal } = useData();
+  const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal, autoPlanDay, resetDay } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
@@ -14,7 +14,6 @@ const MealPlanPage = () => {
     const current = new Date(selectedDate);
     const start = new Date(current);
     start.setDate(current.getDate() - current.getDay());
-
     for (let i = 0; i < 7; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
@@ -27,17 +26,28 @@ const MealPlanPage = () => {
   const todayPlan = mealPlans.find(p => p.date === dateStr);
   const recommendedRecipes = getRecommendedRecipes(targetType, dateStr).filter(r => r.name.includes(search));
 
-  // 🌟 [개선] 랜덤 추천: 상위 5개 중 랜덤으로 하나 선택
   const handleAutoRecommend = (type: 'BREAKFAST' | 'LUNCH' | 'DINNER') => {
     const candidates = getRecommendedRecipes(type, dateStr);
     if (candidates.length > 0) {
-      // 상위 5개(혹은 그 이하) 중에서 랜덤 선택
-      const topCandidates = candidates.slice(0, 5);
-      const randomRecipe = topCandidates[Math.floor(Math.random() * topCandidates.length)];
-      addToMealPlan(dateStr, type, randomRecipe);
+      const bestRecipe = candidates[0]; // 점수 1등
+      addToMealPlan(dateStr, type, bestRecipe);
     } else {
-      alert('조건에 맞는 추천 레시피가 없어요.');
+      alert('추천할 만한 레시피가 없어요.');
     }
+  };
+
+  // 7. & 9. 요일 전체 추천
+  const handleRecommendDay = async () => {
+      if(confirm('오늘 식단을 AI가 자동으로 짜드릴까요? (기존 식단은 유지됨)')) {
+          await autoPlanDay(dateStr);
+      }
+  };
+
+  // 10. 초기화
+  const handleResetDay = async () => {
+      if(confirm('오늘 식단을 모두 비우시겠습니까?')) {
+          await resetDay(dateStr);
+      }
   };
 
   const handleAddRecipe = (recipe: any) => {
@@ -49,28 +59,20 @@ const MealPlanPage = () => {
     updateMealMembers(dateStr, mealType, recipeId, memberId);
   };
 
-  const handleClearDay = () => {
-    if (window.confirm(`${dateStr} 식단을 모두 비우시겠습니까?`)) {
-      ['BREAKFAST', 'LUNCH', 'DINNER'].forEach(type => {
-        const meals = todayPlan?.meals[type as 'BREAKFAST'] || [];
-        meals.forEach(item => removeFromMealPlan(dateStr, type as any, item.recipe.id));
-      });
-    }
-  };
-
-  // 🌟 [수정] 칼로리 계산: 먹는 사람 수 반영
+  // 6. 총 칼로리 계산 (인원수 반영)
   let totalCalories = 0;
   ['BREAKFAST', 'LUNCH', 'DINNER'].forEach(type => {
     const meals = todayPlan?.meals[type as 'BREAKFAST'] || [];
     meals.forEach(item => {
-        const recipeCal = item.recipe.calories || 500;
-        const eatersCount = item.memberIds.length; // 먹는 사람 수
+        const recipeCal = item.recipe.nutrition?.calories || item.recipe.calories || 500;
+        const eatersCount = item.memberIds.length; 
         totalCalories += (recipeCal * eatersCount);
     });
   });
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] pb-24">
+      {/* 날짜 선택 */}
       <div className="bg-white p-4 shadow-sm mb-4">
         <div className="flex justify-between items-center mb-4">
            <h2 className="text-xl font-bold text-gray-800">{new Date(selectedDate).getMonth() + 1}월 {Math.ceil(new Date(selectedDate).getDate()/7)}주차</h2>
@@ -97,16 +99,25 @@ const MealPlanPage = () => {
       </div>
 
       <div className="px-5">
-        <div className="flex justify-between items-center mb-4">
-            <div className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-sm border border-gray-100 flex-1 mr-2">
+        {/* 컨트롤 패널 */}
+        <div className="flex justify-between items-center mb-4 gap-2">
+            <div className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-sm border border-gray-100 flex-1">
                 <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-500"><Flame size={20} fill="currentColor" /></div>
-                <div><p className="text-[10px] text-gray-400 font-bold">오늘 섭취 칼로리</p><span className="text-xl font-black text-gray-800">{totalCalories}</span><span className="text-xs text-gray-500 ml-1">kcal</span></div>
+                <div><p className="text-[10px] text-gray-400 font-bold">오늘 총 섭취</p><span className="text-xl font-black text-gray-800">{totalCalories.toLocaleString()}</span><span className="text-xs text-gray-500 ml-1">kcal</span></div>
             </div>
-            <button onClick={handleClearDay} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-gray-400 hover:text-red-500 transition-colors"><RefreshCw size={20} /></button>
+            {/* 7. & 10. 요일 전체 추천 / 초기화 버튼 */}
+            <div className="flex flex-col gap-1">
+                <button onClick={handleRecommendDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-[#FF6B6B] hover:bg-orange-50 transition-colors flex items-center gap-1 text-xs font-bold">
+                    <Layers size={14} /> AI 풀코스
+                </button>
+                <button onClick={handleResetDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 text-xs font-bold">
+                    <RefreshCw size={14} /> 초기화
+                </button>
+            </div>
         </div>
 
         {['BREAKFAST', 'LUNCH', 'DINNER'].map((type) => {
-          const meals = todayPlan?.meals[type as keyof typeof todayPlan.meals] || [];
+          const meals = todayPlan?.meals[type as 'BREAKFAST'] || [];
           const label = type === 'BREAKFAST' ? '아침' : type === 'LUNCH' ? '점심' : '저녁';
           return (
             <div key={type} className="mb-6">
@@ -121,13 +132,20 @@ const MealPlanPage = () => {
                 <div className="space-y-3">
                   {meals.map((item, idx) => {
                     const warnings = checkRecipeWarnings(item.recipe, item.memberIds);
+                    // 5. & 6. 각 메뉴별 칼로리 표시
+                    const unitCal = item.recipe.nutrition?.calories || item.recipe.calories || 500;
+                    const totalItemCal = unitCal * item.memberIds.length;
+
                     return (
                         <div key={idx} className={`bg-white p-4 rounded-xl shadow-sm border ${warnings.length > 0 ? 'border-red-200 bg-red-50' : 'border-gray-100'} relative`}>
                         <div className="flex gap-3 mb-3 cursor-pointer" onClick={() => openMealModal(item.recipe)}>
-                            <img src={item.recipe.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100 shrink-0" />
+                            <img src={item.recipe.image} onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Img'; }} className="w-16 h-16 rounded-lg object-cover bg-gray-100 shrink-0" />
                             <div className="flex-1">
                                 <h4 className="font-bold text-gray-800 text-sm">{item.recipe.name}</h4>
-                                <p className="text-xs text-gray-400 mt-0.5">{item.recipe.calories} kcal</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-xs text-gray-500">{unitCal}kcal × {item.memberIds.length}명 = </span>
+                                    <span className="text-xs font-bold text-[#FF6B6B]">{totalItemCal}kcal</span>
+                                </div>
                                 {warnings.length > 0 && (<div className="mt-1 flex flex-wrap gap-1">{warnings.map((w, i) => <span key={i} className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle size={10}/> {w}</span>)}</div>)}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); removeFromMealPlan(dateStr, type as any, item.recipe.id); }} className="text-gray-300 hover:text-red-400 self-start p-1"><Trash2 size={16} /></button>
@@ -157,8 +175,8 @@ const MealPlanPage = () => {
               <p className="text-xs text-[#FF6B6B] font-bold mb-2">✨ AI 맞춤 추천 (알러지/기피재료 고려)</p>
               {recommendedRecipes.map(recipe => (
                 <div key={recipe.id} onClick={() => handleAddRecipe(recipe)} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-[#FF6B6B] cursor-pointer transition-colors">
-                  <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0"><img src={recipe.image} className="w-full h-full object-cover"/></div>
-                  <div className="flex-1"><h4 className="font-bold text-sm text-gray-800">{recipe.name}</h4><p className="text-xs text-gray-400 mt-0.5">{recipe.cookingTime}분 • {recipe.calories}kcal</p></div>
+                  <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0"><img src={recipe.image} onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Img'; }} className="w-full h-full object-cover"/></div>
+                  <div className="flex-1"><h4 className="font-bold text-sm text-gray-800">{recipe.name}</h4><p className="text-xs text-gray-400 mt-0.5">{recipe.cookingTime}분 • {recipe.nutrition?.calories || 500}kcal</p></div>
                   <button className="bg-[#FF6B6B] text-white p-1.5 rounded-full"><Plus size={16}/></button>
                 </div>
               ))}
