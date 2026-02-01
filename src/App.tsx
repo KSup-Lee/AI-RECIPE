@@ -21,7 +21,7 @@ interface UserStats { points: number; coupons: number; reviews: number; shipping
 interface AuthContextType { user: User | null; login: (type: string) => Promise<boolean>; logout: () => void; loading: boolean; }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 🌟 [추가] 분석 결과 타입 정의
+// 🌟 장보기 분석 결과 타입
 interface ShoppingNeed { name: string; amount: number; unit: string; dateNeeded: string; dday: number; }
 
 interface DataContextType {
@@ -310,7 +310,7 @@ const MealDetailModal = () => {
                 <h3 className="font-bold text-gray-800 mb-3 text-lg">재료</h3>
                 <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
                   {recipe.ingredients?.map((ing: any, i: number) => {
-                     const hasItem = fridge.some(f => f.name.includes(ing.name) && f.quantity > 0);
+                     const hasItem = fridge.some(f => f.name.includes(ing.name));
                      return (
                         <div key={i} className="flex justify-between items-center text-sm">
                           <div className="flex items-center gap-2">
