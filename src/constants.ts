@@ -356,6 +356,55 @@ export const PREDEFINED_INGREDIENTS: PredefinedIngredient[] = [
   { name: '흑미', category: 'GRAIN', icon: '🌾', defaultStorage: 'ROOM', defaultExpiryDays: 180, defaultUnit: 'kg', baseGram: 1000, suggestedUnits: ['kg', '봉'] },
 ];
 
-export const DUMMY_RECIPES: any[] = []; 
+export const DUMMY_RECIPES: Recipe[] = [
+  {
+    id: '1', name: '김치찌개', category: 'KOREAN', type: '국/찌개',
+    tags: ['한식', '얼큰', '국물'], allergens: ['돼지고기'],
+    ingredients: [{ name: '김치', amount: '200g' }, { name: '돼지고기', amount: '100g' }, { name: '두부', amount: '1/2모' }, { name: '대파', amount: '1대' }],
+    steps: ['김치와 고기를 볶는다', '물을 넣고 끓인다', '두부와 파를 넣는다'],
+    nutrition: { calories: 450, carbs: 20, protein: 30, fat: 25 },
+    cookingTime: 30, difficulty: 'LEVEL1', image: '', rating: 4.5, reviews: [], relatedProducts: []
+  },
+  {
+    id: '2', name: '된장찌개', category: 'KOREAN', type: '국/찌개',
+    tags: ['한식', '구수', '국물'], allergens: ['대두'],
+    ingredients: [{ name: '된장', amount: '2T' }, { name: '두부', amount: '1/2모' }, { name: '애호박', amount: '1/3개' }, { name: '양파', amount: '1/2개' }],
+    steps: ['육수에 된장을 푼다', '채소를 넣고 끓인다', '두부를 넣는다'],
+    nutrition: { calories: 300, carbs: 25, protein: 20, fat: 10 },
+    cookingTime: 20, difficulty: 'LEVEL1', image: '', rating: 4.8, reviews: [], relatedProducts: []
+  },
+  {
+    id: '3', name: '스팸마요덮밥', category: 'ETC', type: '한그릇',
+    tags: ['자취요리', '간단'], allergens: ['계란', '돼지고기', '대두'],
+    ingredients: [{ name: '스팸', amount: '100g' }, { name: '계란', amount: '2개' }, { name: '밥', amount: '1공기' }, { name: '마요네즈', amount: '1T' }],
+    steps: ['스팸을 굽는다', '스크램블 에그를 만든다', '밥 위에 올리고 마요네즈를 뿌린다'],
+    nutrition: { calories: 650, carbs: 80, protein: 25, fat: 40 },
+    cookingTime: 15, difficulty: 'LEVEL1', image: '', rating: 4.2, reviews: [], relatedProducts: []
+  },
+  {
+    id: '4', name: '불고기', category: 'KOREAN', type: '메인반찬',
+    tags: ['고기', '한식'], allergens: ['쇠고기', '대두'],
+    ingredients: [{ name: '소고기', amount: '300g' }, { name: '양파', amount: '1개' }, { name: '당근', amount: '1/3개' }, { name: '간장', amount: '3T' }],
+    steps: ['고기를 양념에 재운다', '채소와 함께 볶는다'],
+    nutrition: { calories: 600, carbs: 20, protein: 45, fat: 30 },
+    cookingTime: 40, difficulty: 'LEVEL2', image: '', rating: 4.9, reviews: [], relatedProducts: []
+  },
+  {
+    id: '5', name: '알리오올리오', category: 'WESTERN', type: '면',
+    tags: ['양식', '파스타'], allergens: ['밀'],
+    ingredients: [{ name: '파스타면', amount: '100g' }, { name: '마늘', amount: '5쪽' }, { name: '올리브유', amount: '3T' }, { name: '페페론치노', amount: '3개' }],
+    steps: ['면을 삶는다', '올리브유에 마늘을 볶는다', '면과 면수를 넣고 볶는다'],
+    nutrition: { calories: 500, carbs: 70, protein: 12, fat: 20 },
+    cookingTime: 20, difficulty: 'LEVEL2', image: '', rating: 4.0, reviews: [], relatedProducts: []
+  },
+  {
+    id: '6', name: '잡채', category: 'KOREAN', type: '반찬',
+    tags: ['한식', '잔치'], allergens: ['대두', '돼지고기'],
+    ingredients: [{ name: '당면', amount: '100g' }, { name: '시금치', amount: '50g' }, { name: '당근', amount: '1/3개' }, { name: '양파', amount: '1/2개' }, { name: '돼지고기', amount: '50g' }],
+    steps: ['당면을 삶는다', '각 재료를 볶는다', '간장 양념에 버무린다'],
+    nutrition: { calories: 400, carbs: 60, protein: 15, fat: 15 },
+    cookingTime: 60, difficulty: 'LEVEL3', image: '', rating: 4.7, reviews: [], relatedProducts: []
+  }
+]; 
 export const DUMMY_POSTS: any[] = []; 
 export const TODAY_MEAL: any = {};
