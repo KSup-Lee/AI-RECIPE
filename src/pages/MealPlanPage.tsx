@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, AlertTriangle, Wand2, RefreshCw, Layers } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, AlertTriangle, Wand2, RefreshCw, Layers, ShoppingCart, Calendar } from 'lucide-react';
 import { useData } from '../App';
+import { useNavigate } from 'react-router-dom';
 
 const MealPlanPage = () => {
-  const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal, autoPlanDay, resetDay } = useData();
+  const navigate = useNavigate();
+  const { mealPlans, addToMealPlan, removeFromMealPlan, updateMealMembers, members, getRecommendedRecipes, checkRecipeWarnings, openMealModal, autoPlanDay, resetDay, autoPlanPeriod, analyzeShoppingNeeds, addShoppingList } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  // 🌟 [추가] 기간 추천 모달 & 장보기 분석 모달
+  const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
+  const [isShoppingAnalysisOpen, setIsShoppingAnalysisOpen] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any[]>([]);
+  const [analysisDays, setAnalysisDays] = useState(3);
+
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
   const [search, setSearch] = useState('');
 
@@ -29,25 +38,49 @@ const MealPlanPage = () => {
   const handleAutoRecommend = (type: 'BREAKFAST' | 'LUNCH' | 'DINNER') => {
     const candidates = getRecommendedRecipes(type, dateStr);
     if (candidates.length > 0) {
-      const bestRecipe = candidates[0]; // 점수 1등
-      addToMealPlan(dateStr, type, bestRecipe);
+      const topFive = candidates.slice(0, 5);
+      const randomRecipe = topFive[Math.floor(Math.random() * topFive.length)];
+      addToMealPlan(dateStr, type, randomRecipe);
     } else {
-      alert('추천할 만한 레시피가 없어요.');
+      alert('조건에 맞는 추천 레시피가 없어요.');
     }
   };
 
-  // 7. & 9. 요일 전체 추천
   const handleRecommendDay = async () => {
-      if(confirm('오늘 식단을 AI가 자동으로 짜드릴까요? (기존 식단은 유지됨)')) {
+      if(confirm('오늘 식단을 AI가 자동으로 짜드릴까요?')) {
           await autoPlanDay(dateStr);
       }
   };
 
-  // 10. 초기화
   const handleResetDay = async () => {
       if(confirm('오늘 식단을 모두 비우시겠습니까?')) {
           await resetDay(dateStr);
       }
+  };
+
+  // 기간별 추천 실행
+  const handlePeriodPlan = async (days: number) => {
+      if(confirm(`오늘부터 ${days}일치 식단을 자동으로 생성하시겠습니까?`)) {
+          await autoPlanPeriod(dateStr, days);
+          setIsPeriodModalOpen(false);
+          alert('식단 생성이 완료되었습니다!');
+      }
+  };
+
+  // 장보기 분석 실행
+  const handleAnalyzeShopping = (days: number) => {
+      const needs = analyzeShoppingNeeds(dateStr, days);
+      setAnalysisResult(needs);
+      setAnalysisDays(days);
+      setIsShoppingAnalysisOpen(true);
+  };
+
+  // 장보기 목록 저장
+  const handleSaveShoppingList = async () => {
+      const items = analysisResult.map(item => `${item.name} (${item.dateNeeded} 필요)`);
+      await addShoppingList(items);
+      setIsShoppingAnalysisOpen(false);
+      navigate('/shopping');
   };
 
   const handleAddRecipe = (recipe: any) => {
@@ -59,7 +92,6 @@ const MealPlanPage = () => {
     updateMealMembers(dateStr, mealType, recipeId, memberId);
   };
 
-  // 6. 총 칼로리 계산 (인원수 반영)
   let totalCalories = 0;
   ['BREAKFAST', 'LUNCH', 'DINNER'].forEach(type => {
     const meals = todayPlan?.meals[type as 'BREAKFAST'] || [];
@@ -105,13 +137,18 @@ const MealPlanPage = () => {
                 <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-500"><Flame size={20} fill="currentColor" /></div>
                 <div><p className="text-[10px] text-gray-400 font-bold">오늘 총 섭취</p><span className="text-xl font-black text-gray-800">{totalCalories.toLocaleString()}</span><span className="text-xs text-gray-500 ml-1">kcal</span></div>
             </div>
-            {/* 7. & 10. 요일 전체 추천 / 초기화 버튼 */}
-            <div className="flex flex-col gap-1">
-                <button onClick={handleRecommendDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-[#FF6B6B] hover:bg-orange-50 transition-colors flex items-center gap-1 text-xs font-bold">
-                    <Layers size={14} /> AI 풀코스
+            <div className="grid grid-cols-2 gap-1.5">
+                <button onClick={handleRecommendDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-[#FF6B6B] hover:bg-orange-50 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
+                    <Wand2 size={14} /> 1일 추천
                 </button>
-                <button onClick={handleResetDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 text-xs font-bold">
+                <button onClick={() => setIsPeriodModalOpen(true)} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-blue-500 hover:bg-blue-50 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
+                    <Calendar size={14} /> 기간 추천
+                </button>
+                <button onClick={handleResetDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
                     <RefreshCw size={14} /> 초기화
+                </button>
+                <button onClick={() => handleAnalyzeShopping(3)} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-green-600 hover:bg-green-50 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
+                    <ShoppingCart size={14} /> 장보기
                 </button>
             </div>
         </div>
@@ -132,7 +169,6 @@ const MealPlanPage = () => {
                 <div className="space-y-3">
                   {meals.map((item, idx) => {
                     const warnings = checkRecipeWarnings(item.recipe, item.memberIds);
-                    // 5. & 6. 각 메뉴별 칼로리 표시
                     const unitCal = item.recipe.nutrition?.calories || item.recipe.calories || 500;
                     const totalItemCal = unitCal * item.memberIds.length;
 
@@ -165,6 +201,52 @@ const MealPlanPage = () => {
           );
         })}
       </div>
+
+      {/* 모달 1: 기간 추천 선택 */}
+      {isPeriodModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
+              <div className="bg-white w-full max-w-xs rounded-2xl p-6 animate-slide-up">
+                  <h3 className="font-bold text-lg mb-4 text-center">📅 식단 기간 자동 추천</h3>
+                  <div className="grid grid-cols-1 gap-3">
+                      <button onClick={() => handlePeriodPlan(3)} className="bg-orange-50 border border-orange-200 text-orange-600 py-3 rounded-xl font-bold">3일치 추천 받기</button>
+                      <button onClick={() => handlePeriodPlan(7)} className="bg-blue-50 border border-blue-200 text-blue-600 py-3 rounded-xl font-bold">일주일치 추천 받기</button>
+                      <button onClick={() => setIsPeriodModalOpen(false)} className="mt-2 text-gray-400 text-sm underline">취소</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* 모달 2: 장보기 분석 결과 */}
+      {isShoppingAnalysisOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-6 h-[70vh] flex flex-col animate-slide-up">
+                  <div className="flex justify-between items-center mb-4 shrink-0">
+                      <h3 className="font-bold text-lg">🛒 장보기 분석 ({analysisDays}일)</h3>
+                      <button onClick={() => setIsShoppingAnalysisOpen(false)}><X className="text-gray-400"/></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto space-y-3">
+                      {analysisResult.length === 0 ? (
+                          <div className="text-center py-10 text-gray-400">부족한 재료가 없어요! 완벽합니다 🎉</div>
+                      ) : (
+                          analysisResult.map((item, i) => (
+                              <div key={i} className="flex justify-between items-center p-3 border rounded-xl">
+                                  <div>
+                                      <div className="font-bold text-gray-800">{item.name}</div>
+                                      <div className="text-xs text-red-500 font-bold">{item.dateNeeded} 까지 필요</div>
+                                  </div>
+                                  <div className="text-sm font-bold bg-gray-100 px-2 py-1 rounded">D-{item.dday}</div>
+                              </div>
+                          ))
+                      )}
+                  </div>
+                  {analysisResult.length > 0 && (
+                      <button onClick={handleSaveShoppingList} className="w-full bg-[#FF6B6B] text-white py-3 rounded-xl font-bold mt-4 shrink-0 shadow-md">
+                          장보기 목록에 모두 담기
+                      </button>
+                  )}
+              </div>
+          </div>
+      )}
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
