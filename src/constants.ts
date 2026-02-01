@@ -406,5 +406,5 @@ export const DUMMY_RECIPES: Recipe[] = [
     cookingTime: 60, difficulty: 'LEVEL3', image: '', rating: 4.7, reviews: [], relatedProducts: []
   }
 ]; 
-export const DUMMY_POSTS: any[] = []; 
+export const DUMMY_POSTS: Post[] = []; 
 export const TODAY_MEAL: any = {};
