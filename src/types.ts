@@ -1,9 +1,12 @@
-// ... (User, UserRole 등 상단 동일)
+// ... (User, UserRole 등 기존 코드 유지)
+export enum UserRole { ADMIN = 'ADMIN', USER = 'USER' }
+export interface User { id: string; username: string; role: UserRole; name: string; avatar: string; }
 
 export interface DefaultMealSettings {
   [key: string]: { breakfast: boolean; lunch: boolean; dinner: boolean };
 }
 
+// 🌟 [수정] shoppingCycle 추가
 export interface Member {
   id: string;
   name: string;
@@ -23,7 +26,7 @@ export interface Member {
   
   defaultMeals?: DefaultMealSettings;
 
-  // 🌟 [추가] 장보기 주기 (일 단위)
+  // 🌟 장보기 주기 (일 단위) - New!
   shoppingCycle?: number; 
 
   proteinFocus: boolean; 
@@ -32,7 +35,7 @@ export interface Member {
   targetCalories: number;
 }
 
-// ... (나머지 하단 동일: Ingredient, Recipe, MealPlanItem 등)
+// ... (Ingredient 등 나머지 하단 코드 기존 유지)
 export type IngredientCategory = 'VEGETABLE' | 'MEAT' | 'SEAFOOD' | 'FRUIT' | 'DAIRY' | 'SAUCE' | 'GRAIN' | 'PROCESSED' | 'ETC';
 export interface Ingredient { id: string; name: string; category: IngredientCategory; quantity: number; unit: string; expiryDate: string; storage: 'FRIDGE' | 'FREEZER' | 'ROOM'; image: string; isFavorite?: boolean; }
 export interface PredefinedIngredient { name: string; category: IngredientCategory; icon: string; defaultStorage: 'FRIDGE' | 'FREEZER' | 'ROOM'; defaultExpiryDays: number; defaultUnit: string; baseGram?: number; suggestedUnits?: string[]; expiry?: number; unit?: string; }
