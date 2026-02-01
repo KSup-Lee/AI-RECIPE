@@ -1,5 +1,5 @@
 import { Ingredient, DailyMealPlan, Member, Product, Recipe, Post, PredefinedIngredient, IngredientCategory, Review, RelatedProduct } from "./types";
-
+ 
 export const CATEGORIES: { id: IngredientCategory; label: string; icon: string }[] = [
   { id: 'VEGETABLE', label: '채소', icon: '🥬' },
   { id: 'FRUIT', label: '과일', icon: '🍎' },
