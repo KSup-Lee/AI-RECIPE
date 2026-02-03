@@ -1,24 +1,31 @@
-// 사용자 권한
+// ==========================================
+// 1. 사용자 및 멤버 관련 (Auth & MyPage)
+// ==========================================
+
 export enum UserRole {
   ADMIN = 'ADMIN',
   USER = 'USER',
 }
 
-// 기본 사용자 정보
 export interface User {
   id: string;
-  username: string;
+  username: string; // 이메일
   role: UserRole;
-  name: string;
+  name: string;     // 구글 실명
+  nickname?: string; // 앱 내 표시 닉네임 (New)
   avatar: string;
 }
 
-// 요일별 식사 설정 타입
+// 요일별 식사 여부 설정
 export interface DefaultMealSettings {
-  [key: string]: { breakfast: boolean; lunch: boolean; dinner: boolean };
+  [key: string]: { 
+    breakfast: boolean; 
+    lunch: boolean; 
+    dinner: boolean; 
+  };
 }
 
-// 가족 구성원
+// 가족 구성원 상세 정보
 export interface Member {
   id: string;
   name: string;
@@ -26,24 +33,36 @@ export interface Member {
   birthDate: string;
   avatarColor: string;
   relationship: 'ME' | 'FAMILY';
+
+  // 신체 정보
   height?: number;
   weight?: number;
+  
+  // 건강 및 식습관 필터
   hasNoAllergy: boolean;
   allergies: string[];
   hasNoDisease: boolean;
   diseases: string[];
-  dislikes: string[];
+  dislikes: string[]; // 싫어하는 재료
+  
+  // 식사 스케줄 및 장보기
   defaultMeals?: DefaultMealSettings;
-  shoppingCycle?: number; 
+  shoppingCycle?: number; // 장보기 주기 (New)
+
+  // 영양 목표
   proteinFocus: boolean; 
   quickOnly: boolean; 
   likes: string[];
   targetCalories: number;
 }
 
+// ==========================================
+// 2. 냉장고 및 재료 관련 (Fridge)
+// ==========================================
+
 export type IngredientCategory = 'VEGETABLE' | 'MEAT' | 'SEAFOOD' | 'FRUIT' | 'DAIRY' | 'SAUCE' | 'GRAIN' | 'PROCESSED' | 'ETC';
 
-// [냉장고 재료]
+// 사용자가 냉장고에 추가한 재료
 export interface Ingredient {
   id: string; 
   name: string; 
@@ -56,7 +75,7 @@ export interface Ingredient {
   isFavorite?: boolean; 
 }
 
-// [사전 정의된 재료 DB]
+// 앱에 미리 정의된 재료 데이터베이스 (자동완성용)
 export interface PredefinedIngredient {
   name: string; 
   category: IngredientCategory; 
@@ -70,61 +89,129 @@ export interface PredefinedIngredient {
   unit?: string;
 }
 
-// 🌟 [핵심 변경] 레시피 구조 확장 (유튜브 연동 및 정밀 분석용)
+// ==========================================
+// 3. 레시피 관련 (Recipe - 구조 확장됨)
+// ==========================================
+
+// 레시피 내부 재료 구조 (정규화됨)
 export interface RecipeIngredient {
-  name: string;       // 표시용 이름 (예: 양파 1/2개)
-  normalizedName?: string; // 검색/매칭용 이름 (예: 양파) - 냉장고 연동 핵심
-  amount: string;     // 표시용 양 (예: 1/2개)
-  quantity?: number;  // 계산용 수량 (예: 0.5) - 장보기 합산용
+  name: string;       // 화면 표시용 (예: 양파 1/2개)
+  normalizedName?: string; // 검색 및 매칭용 (예: 양파)
+  amount: string;     // 텍스트 분량 (예: 1/2개)
+  quantity?: number;  // 계산용 수량 (예: 0.5)
   unit?: string;      // 계산용 단위 (예: 개)
 }
 
+// 레시피 조리 단계
 export interface RecipeStep {
-  text: string;       // 조리법 텍스트
-  timer?: number;     // 타이머가 필요한 경우 (초 단위) - 영상 연동 시 유용
-  imageUrl?: string;  // 단계별 이미지 (영상 캡처 등)
+  text: string;
+  timer?: number;
+  imageUrl?: string;
 }
 
+// 레시피 메인 정보
 export interface Recipe {
   id: string; 
   name: string; 
-  type: any; // 국, 반찬 등
-  category: any; // 한식, 양식 등
+  type: any;        // 국, 반찬, 일품 등
+  category: any;    // 한식, 양식 등
   tags: string[]; 
   allergens: string[]; 
   
-  // 🌟 구조화된 재료 목록
+  // 재료 및 조리법
   ingredients: RecipeIngredient[]; 
+  steps: string[]; 
   
-  // 🌟 구조화된 조리 순서
-  steps: string[]; // 기존 호환성을 위해 string[] 유지하되, 나중에 RecipeStep[]으로 확장 가능
-  
+  // 영양 정보
   nutrition: { 
     calories: number; 
     carbs: number; 
     protein: number; 
-    fat: number 
+    fat: number; 
   }; 
   
+  // 메타 정보
   cookingTime: number; 
   difficulty: string; 
   image: string; 
-  
-  // 🌟 유튜브 연동 필드 추가
-  videoUrl?: string; // 유튜브 영상 링크
-  originalSource?: string; // 출처 (예: '백종원 PAIK JONG WON')
+  videoUrl?: string;      // 유튜브 링크 (New)
+  originalSource?: string; // 출처 (New)
   
   rating: number; 
   reviews: any[]; 
   relatedProducts: any[]; 
-  matchRate?: number; 
-  calories?: number;
+  matchRate?: number;     // 냉장고 매칭률 (동적 계산)
+  calories?: number;      // 호환성 유지용
 }
 
-export interface MealPlanItem { recipe: Recipe; memberIds: string[]; isCompleted?: boolean; }
-export interface DailyMealPlan { date: string; meals: { BREAKFAST: MealPlanItem[]; LUNCH: MealPlanItem[]; DINNER: MealPlanItem[]; }; }
-export interface Product { id: string; name: string; price: number; discountRate?: number; rating: number; image: string; tags: string[]; link: string; category: string; }
-export interface CartItem { id: string; product: Product; quantity: number; }
-export interface Post { id: string; userId?: string; userName?: string; userAvatar?: string; image?: string; content: string; likes: number; date?: string; title?: string; author?: string; uid?: string; createdAt?: any; }
-export interface Review { id: string; userId: string; userName: string; rating: number; comment: string; date: string; }
-export interface RelatedProduct { name: string; price: number; image: string; link: string; }
+// ==========================================
+// 4. 식단 관련 (MealPlan)
+// ==========================================
+
+export interface MealPlanItem { 
+  recipe: Recipe; 
+  memberIds: string[]; 
+  isCompleted?: boolean; 
+}
+
+export interface DailyMealPlan {
+  date: string; 
+  meals: { 
+    BREAKFAST: MealPlanItem[]; 
+    LUNCH: MealPlanItem[]; 
+    DINNER: MealPlanItem[]; 
+  };
+}
+
+// ==========================================
+// 5. 쇼핑 및 커뮤니티 (Shopping & Community)
+// ==========================================
+
+export interface Product { 
+  id: string; 
+  name: string; 
+  price: number; 
+  discountRate?: number; 
+  rating: number; 
+  image: string; 
+  tags: string[]; 
+  link: string; 
+  category: string; 
+}
+
+export interface CartItem { 
+  id: string; 
+  product: Product; 
+  quantity: number; 
+}
+
+export interface Post { 
+  id: string; 
+  userId?: string; 
+  userName?: string; 
+  userAvatar?: string; 
+  image?: string; 
+  content: string; 
+  likes: number; 
+  date?: string; 
+  title?: string; 
+  author?: string; 
+  uid?: string; 
+  createdAt?: any; 
+}
+
+export interface Review { 
+  id: string; 
+  userId: string; 
+  userName: string; 
+  rating: number; 
+  comment: string; 
+  date: string; 
+}
+
+export interface RelatedProduct { 
+  name: string; 
+  price: number; 
+  image: string; 
+  link: string; 
+}
