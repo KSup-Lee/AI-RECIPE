@@ -4,7 +4,6 @@ import { DUMMY_RECIPES, DUMMY_POSTS, TODAY_MEAL } from './constants';
 import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Post, DefaultMealSettings } from './types';
 import { auth, googleProvider, db } from './firebase'; 
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-// 🌟 [추가] getDoc import 필요
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
 import HomePage from './pages/Home';        
@@ -16,18 +15,10 @@ import MealPlanPage from './pages/MealPlanPage';
 import MyPage from './pages/MyPage';         
 import Navigation from './components/Navigation';
 import Header from './components/Header';
-import { X, Utensils, Heart } from 'lucide-react';
+import { X, Utensils, Heart, PlayCircle } from 'lucide-react';
 
 interface UserStats { points: number; coupons: number; reviews: number; shipping: number; }
-
-// 🌟 [수정] updateProfileName 함수 타입 추가
-interface AuthContextType { 
-  user: User | null; 
-  login: (type: string) => Promise<boolean>; 
-  logout: () => void; 
-  loading: boolean;
-  updateProfileName: (newNickname: string) => Promise<void>; 
-}
+interface AuthContextType { user: User | null; login: (type: string) => Promise<boolean>; logout: () => void; loading: boolean; updateProfileName: (n: string) => Promise<void>; }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface ShoppingNeed { name: string; amount: number; unit: string; dateNeeded: string; dday: number; }
@@ -63,33 +54,16 @@ const AuthProvider = ({ children }: { children?: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // 🌟 [수정] 로그인 시 DB에서 닉네임 가져오기
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
-        
         let nickname = firebaseUser.displayName || '사용자';
-        
         if (userSnap.exists()) {
             const userData = userSnap.data();
             if (userData.nickname) nickname = userData.nickname;
         } else {
-            // 처음 가입 시 DB 생성
-            await setDoc(userRef, { 
-                email: firebaseUser.email, 
-                name: firebaseUser.displayName,
-                nickname: nickname, // 초기값은 구글 이름
-                photoURL: firebaseUser.photoURL 
-            }, { merge: true });
+            await setDoc(userRef, { email: firebaseUser.email, name: firebaseUser.displayName, nickname: nickname, photoURL: firebaseUser.photoURL }, { merge: true });
         }
-
-        setUser({ 
-            id: firebaseUser.uid, 
-            username: firebaseUser.email || 'user', 
-            name: firebaseUser.displayName || '사용자',
-            nickname: nickname, // 🌟 DB 닉네임 적용
-            role: UserRole.USER, 
-            avatar: firebaseUser.photoURL || 'https://ui-avatars.com/api/?name=User' 
-        });
+        setUser({ id: firebaseUser.uid, username: firebaseUser.email || 'user', name: firebaseUser.displayName || '사용자', nickname: nickname, role: UserRole.USER, avatar: firebaseUser.photoURL || 'https://ui-avatars.com/api/?name=User' });
       } else {
         setUser(null);
       }
@@ -100,15 +74,7 @@ const AuthProvider = ({ children }: { children?: ReactNode }) => {
 
   const login = async (type: string) => { try { await signInWithPopup(auth, googleProvider); return true; } catch { return false; } };
   const logout = async () => { await signOut(auth); setUser(null); };
-
-  // 🌟 [추가] 닉네임 변경 함수 (DB + 로컬상태 동시 업데이트)
-  const updateProfileName = async (newNickname: string) => {
-      if (!user) return;
-      // 1. DB 업데이트
-      await updateDoc(doc(db, 'users', user.id), { nickname: newNickname });
-      // 2. 화면 즉시 반영
-      setUser(prev => prev ? { ...prev, nickname: newNickname } : null);
-  };
+  const updateProfileName = async (newNickname: string) => { if (!user) return; await updateDoc(doc(db, 'users', user.id), { nickname: newNickname }); setUser(prev => prev ? { ...prev, nickname: newNickname } : null); };
 
   return <AuthContext.Provider value={{ user, login, logout, loading, updateProfileName }}>{children}</AuthContext.Provider>;
 };
@@ -139,6 +105,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     return () => unsubs.forEach(u => u());
   }, [user]);
 
+  // CRUD Functions (기존 유지)
   const addToCart = (product: any, quantity: number) => setCart(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), product, quantity }]);
   const removeFromCart = (id: string) => setCart(prev => prev.filter(item => item.id !== id));
   const addIngredient = async (item: Ingredient) => { if (!user) return; const { id, ...data } = item; await addDoc(collection(db, 'users', user.id, 'fridge'), data); };
@@ -289,13 +256,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
                       if (!inFridge) {
                           if (!needs[ing.name]) {
                               const dday = Math.ceil((curr.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                              needs[ing.name] = { 
-                                  name: ing.name, 
-                                  amount: 1, 
-                                  unit: '개', 
-                                  dateNeeded: dateStr,
-                                  dday: dday
-                              };
+                              needs[ing.name] = { name: ing.name, amount: 1, unit: '개', dateNeeded: dateStr, dday: dday };
                           } else {
                               needs[ing.name].amount += 1;
                           }
@@ -328,23 +289,45 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   );
 };
 
+// 🌟 [수정] 레시피 상세 모달 (영상 재생 기능 추가)
 const MealDetailModal = () => {
     const { mealModalData, closeMealModal, favorites, toggleFavorite, fridge } = useData();
     const recipe = mealModalData.recipe;
     if (!mealModalData.isOpen || !recipe) return null;
 
+    // 유튜브 URL에서 ID 추출 함수
+    const getYoutubeId = (url: string) => {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+    const videoId = recipe.videoUrl ? getYoutubeId(recipe.videoUrl) : null;
+
     return (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 animate-fade-in">
            <div className="bg-white w-full max-w-md h-[85vh] rounded-3xl relative flex flex-col overflow-hidden animate-slide-up">
-              <div className="relative w-full aspect-video bg-gray-100 shrink-0">
-                <img src={recipe.image} onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/600x400?text=No+Image'; }} className="absolute inset-0 w-full h-full object-cover"/>
-                <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/40 to-transparent">
+              <div className="relative w-full aspect-video bg-black shrink-0">
+                {videoId ? (
+                    // 🌟 유튜브 플레이어
+                    <iframe 
+                        className="absolute inset-0 w-full h-full"
+                        src={`https://www.youtube.com/embed/${videoId}`}
+                        title="YouTube video player"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                    ></iframe>
+                ) : (
+                    <img src={recipe.image} onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/600x400?text=No+Image'; }} className="absolute inset-0 w-full h-full object-cover"/>
+                )}
+                <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
                    <span className="text-white font-bold text-sm bg-black/30 px-2 py-1 rounded-lg backdrop-blur-sm">{recipe.category}</span>
-                   <button onClick={closeMealModal} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors"><X size={20}/></button>
+                   <button onClick={closeMealModal} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors pointer-events-auto"><X size={20}/></button>
                 </div>
               </div>
+              
               <div className="flex-1 overflow-y-auto p-6 bg-white">
-                <h2 className="text-2xl font-black text-gray-900 mb-2">{recipe.name}</h2>
+                <h2 className="text-2xl font-black text-gray-900 mb-1">{recipe.name}</h2>
                 <div className="flex gap-4 text-sm text-gray-500 mb-4">
                     <span>🔥 {recipe.nutrition?.calories || 500}kcal</span>
                     <span>⏱ {recipe.cookingTime}분</span>
@@ -381,6 +364,7 @@ const MealDetailModal = () => {
     );
 };
 
+// ... (AuthPage, AppRoutes, App 등은 동일하게 유지)
 const AuthPage = () => {
   const { login } = useAuth();
   return (
