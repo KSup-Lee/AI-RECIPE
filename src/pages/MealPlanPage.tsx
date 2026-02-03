@@ -9,7 +9,6 @@ const MealPlanPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
-  // 🌟 [추가] 기간 추천 모달 & 장보기 분석 모달
   const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
   const [isShoppingAnalysisOpen, setIsShoppingAnalysisOpen] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any[]>([]);
@@ -58,7 +57,6 @@ const MealPlanPage = () => {
       }
   };
 
-  // 기간별 추천 실행
   const handlePeriodPlan = async (days: number) => {
       if(confirm(`오늘부터 ${days}일치 식단을 자동으로 생성하시겠습니까?`)) {
           await autoPlanPeriod(dateStr, days);
@@ -67,15 +65,19 @@ const MealPlanPage = () => {
       }
   };
 
-  // 장보기 분석 실행
-  const handleAnalyzeShopping = (days: number) => {
-      const needs = analyzeShoppingNeeds(dateStr, days);
+  // 🌟 [수정] 장보기 분석 (설정된 주기 연동)
+  const handleAnalyzeShopping = () => {
+      // 1. 내 정보(ME) 찾기
+      const me = members.find(m => m.relationship === 'ME');
+      // 2. 설정된 주기 가져오기 (없으면 기본 3일)
+      const cycle = me?.shoppingCycle || 3;
+      
+      const needs = analyzeShoppingNeeds(dateStr, cycle);
       setAnalysisResult(needs);
-      setAnalysisDays(days);
+      setAnalysisDays(cycle);
       setIsShoppingAnalysisOpen(true);
   };
 
-  // 장보기 목록 저장
   const handleSaveShoppingList = async () => {
       const items = analysisResult.map(item => `${item.name} (${item.dateNeeded} 필요)`);
       await addShoppingList(items);
@@ -131,7 +133,6 @@ const MealPlanPage = () => {
       </div>
 
       <div className="px-5">
-        {/* 컨트롤 패널 */}
         <div className="flex justify-between items-center mb-4 gap-2">
             <div className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-sm border border-gray-100 flex-1">
                 <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-500"><Flame size={20} fill="currentColor" /></div>
@@ -147,7 +148,8 @@ const MealPlanPage = () => {
                 <button onClick={handleResetDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
                     <RefreshCw size={14} /> 초기화
                 </button>
-                <button onClick={() => handleAnalyzeShopping(3)} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-green-600 hover:bg-green-50 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
+                {/* 🌟 [수정] 클릭 시 설정된 주기로 분석 */}
+                <button onClick={handleAnalyzeShopping} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-green-600 hover:bg-green-50 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
                     <ShoppingCart size={14} /> 장보기
                 </button>
             </div>
@@ -202,7 +204,6 @@ const MealPlanPage = () => {
         })}
       </div>
 
-      {/* 모달 1: 기간 추천 선택 */}
       {isPeriodModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
               <div className="bg-white w-full max-w-xs rounded-2xl p-6 animate-slide-up">
@@ -216,7 +217,6 @@ const MealPlanPage = () => {
           </div>
       )}
 
-      {/* 모달 2: 장보기 분석 결과 */}
       {isShoppingAnalysisOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
               <div className="bg-white w-full max-w-sm rounded-2xl p-6 h-[70vh] flex flex-col animate-slide-up">
