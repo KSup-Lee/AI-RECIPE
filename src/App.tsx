@@ -4,7 +4,8 @@ import { DUMMY_RECIPES, DUMMY_POSTS, TODAY_MEAL } from './constants';
 import { User, UserRole, Recipe, Ingredient, Member, DailyMealPlan, CartItem, Post, DefaultMealSettings } from './types';
 import { auth, googleProvider, db } from './firebase'; 
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
+// 🌟 [추가] getDoc import 필요
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
 import HomePage from './pages/Home';        
 import FridgePage from './pages/FridgePage'; 
@@ -18,10 +19,17 @@ import Header from './components/Header';
 import { X, Utensils, Heart } from 'lucide-react';
 
 interface UserStats { points: number; coupons: number; reviews: number; shipping: number; }
-interface AuthContextType { user: User | null; login: (type: string) => Promise<boolean>; logout: () => void; loading: boolean; }
+
+// 🌟 [수정] updateProfileName 함수 타입 추가
+interface AuthContextType { 
+  user: User | null; 
+  login: (type: string) => Promise<boolean>; 
+  logout: () => void; 
+  loading: boolean;
+  updateProfileName: (newNickname: string) => Promise<void>; 
+}
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 🌟 장보기 분석 결과 타입
 interface ShoppingNeed { name: string; amount: number; unit: string; dateNeeded: string; dday: number; }
 
 interface DataContextType {
@@ -39,7 +47,6 @@ interface DataContextType {
   closeMealModal: () => void;
   autoPlanDay: (date: string) => Promise<void>; 
   resetDay: (date: string) => Promise<void>;
-  // 🌟 [추가] 기간별 추천 및 장보기 분석 함수
   autoPlanPeriod: (startDate: string, days: number) => Promise<void>;
   analyzeShoppingNeeds: (startDate: string, days: number) => ShoppingNeed[];
   addShoppingList: (items: string[]) => Promise<void>;
@@ -52,17 +59,58 @@ export const useData = () => { const context = useContext(DataContext); if (!con
 const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) setUser({ id: firebaseUser.uid, username: firebaseUser.email || 'user', name: firebaseUser.displayName || '사용자', role: UserRole.USER, avatar: firebaseUser.photoURL || 'https://ui-avatars.com/api/?name=User' });
-      else setUser(null);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // 🌟 [수정] 로그인 시 DB에서 닉네임 가져오기
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
+        
+        let nickname = firebaseUser.displayName || '사용자';
+        
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            if (userData.nickname) nickname = userData.nickname;
+        } else {
+            // 처음 가입 시 DB 생성
+            await setDoc(userRef, { 
+                email: firebaseUser.email, 
+                name: firebaseUser.displayName,
+                nickname: nickname, // 초기값은 구글 이름
+                photoURL: firebaseUser.photoURL 
+            }, { merge: true });
+        }
+
+        setUser({ 
+            id: firebaseUser.uid, 
+            username: firebaseUser.email || 'user', 
+            name: firebaseUser.displayName || '사용자',
+            nickname: nickname, // 🌟 DB 닉네임 적용
+            role: UserRole.USER, 
+            avatar: firebaseUser.photoURL || 'https://ui-avatars.com/api/?name=User' 
+        });
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
+
   const login = async (type: string) => { try { await signInWithPopup(auth, googleProvider); return true; } catch { return false; } };
   const logout = async () => { await signOut(auth); setUser(null); };
-  return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>;
+
+  // 🌟 [추가] 닉네임 변경 함수 (DB + 로컬상태 동시 업데이트)
+  const updateProfileName = async (newNickname: string) => {
+      if (!user) return;
+      // 1. DB 업데이트
+      await updateDoc(doc(db, 'users', user.id), { nickname: newNickname });
+      // 2. 화면 즉시 반영
+      setUser(prev => prev ? { ...prev, nickname: newNickname } : null);
+  };
+
+  return <AuthContext.Provider value={{ user, login, logout, loading, updateProfileName }}>{children}</AuthContext.Provider>;
 };
 
 const DataProvider = ({ children }: { children?: ReactNode }) => {
@@ -75,7 +123,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [posts] = useState<Post[]>(DUMMY_POSTS);
   const [userStats, setUserStats] = useState<UserStats>({ points: 0, coupons: 0, reviews: 0, shipping: 0 });
   const [favorites, setFavorites] = useState<string[]>([]);
-  
   const initialSchedule = { breakfast: true, lunch: true, dinner: true };
   const [defaultSettings, setDefaultSettings] = useState<DefaultMealSettings>({ MON: initialSchedule, TUE: initialSchedule, WED: initialSchedule, THU: initialSchedule, FRI: initialSchedule, SAT: initialSchedule, SUN: initialSchedule });
   const [mealModalData, setMealModalData] = useState<{ isOpen: boolean; recipe: Recipe | null }>({ isOpen: false, recipe: null });
@@ -92,7 +139,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
     return () => unsubs.forEach(u => u());
   }, [user]);
 
-  // CRUD Functions
   const addToCart = (product: any, quantity: number) => setCart(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), product, quantity }]);
   const removeFromCart = (id: string) => setCart(prev => prev.filter(item => item.id !== id));
   const addIngredient = async (item: Ingredient) => { if (!user) return; const { id, ...data } = item; await addDoc(collection(db, 'users', user.id, 'fridge'), data); };
@@ -105,7 +151,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
   const openMealModal = (recipe: Recipe) => setMealModalData({ isOpen: true, recipe });
   const closeMealModal = () => setMealModalData({ isOpen: false, recipe: null });
 
-  // 🌟 [추가] 장보기 목록 일괄 추가
   const addShoppingList = async (items: string[]) => {
       if (!user) return;
       const batchPromises = items.map(text => 
@@ -214,7 +259,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
       await setDoc(doc(db, 'users', user.id, 'mealPlans', date), { meals: newMeals });
   };
 
-  // 🌟 [추가] 기간별 일괄 추천 (3일, 7일 등)
   const autoPlanPeriod = async (startDate: string, days: number) => {
       const start = new Date(startDate);
       for (let i = 0; i < days; i++) {
@@ -225,7 +269,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
-  // 🌟 [추가] 장보기 필요 목록 분석 (핵심 로직)
   const analyzeShoppingNeeds = (startDate: string, days: number): ShoppingNeed[] => {
       const needs: Record<string, ShoppingNeed> = {};
       const start = new Date(startDate);
@@ -242,7 +285,6 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
               const meals = plan.meals[type as 'BREAKFAST'];
               meals.forEach(item => {
                   item.recipe.ingredients.forEach(ing => {
-                      // 냉장고에 있는지 확인 (단순 이름 매칭)
                       const inFridge = fridge.find(f => f.name.includes(ing.name) && f.quantity > 0);
                       if (!inFridge) {
                           if (!needs[ing.name]) {
@@ -250,7 +292,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
                               needs[ing.name] = { 
                                   name: ing.name, 
                                   amount: 1, 
-                                  unit: '개', // 단위 통일 필요하지만 일단 개로 가정
+                                  unit: '개', 
                                   dateNeeded: dateStr,
                                   dday: dday
                               };
@@ -262,7 +304,7 @@ const DataProvider = ({ children }: { children?: ReactNode }) => {
               });
           });
       }
-      return Object.values(needs).sort((a, b) => a.dday - b.dday); // 급한 순 정렬
+      return Object.values(needs).sort((a, b) => a.dday - b.dday);
   };
 
   const checkRecipeWarnings = (recipe: Recipe, memberIds: string[]): string[] => {
@@ -310,7 +352,7 @@ const MealDetailModal = () => {
                 <h3 className="font-bold text-gray-800 mb-3 text-lg">재료</h3>
                 <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
                   {recipe.ingredients?.map((ing: any, i: number) => {
-                     const hasItem = fridge.some(f => f.name.includes(ing.name));
+                     const hasItem = fridge.some(f => f.name.includes(ing.name) && f.quantity > 0);
                      return (
                         <div key={i} className="flex justify-between items-center text-sm">
                           <div className="flex items-center gap-2">
@@ -339,7 +381,6 @@ const MealDetailModal = () => {
     );
 };
 
-// (AuthPage, AppRoutes, App 하단 코드는 기존과 동일하므로 유지 - 생략 가능하지만 편의상 아래에 붙임)
 const AuthPage = () => {
   const { login } = useAuth();
   return (
