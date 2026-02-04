@@ -357,19 +357,31 @@ export const PREDEFINED_INGREDIENTS: PredefinedIngredient[] = [
 ];
 
 export const DUMMY_RECIPES: Recipe[] = [
+ { id: '1', name: '김치찌개', category: 'KOREAN', type: '국/찌개', tags: ['한식', '얼큰'], allergens: ['돼지고기'], ingredients: [{ name: '김치', amount: '200g' }, { name: '돼지고기', amount: '100g' }, { name: '두부', amount: '1/2모' }], steps: ['볶기', '끓이기'], nutrition: { calories: 450, carbs: 20, protein: 30, fat: 25 }, cookingTime: 30, difficulty: 'LEVEL1', image: '', rating: 4.5, reviews: [], relatedProducts: [] },
+  { id: '2', name: '된장찌개', category: 'KOREAN', type: '국/찌개', tags: ['한식', '구수'], allergens: ['대두'], ingredients: [{ name: '된장', amount: '2T' }, { name: '두부', amount: '1/2모' }, { name: '애호박', amount: '1/3개' }], steps: ['끓이기'], nutrition: { calories: 300, carbs: 25, protein: 20, fat: 10 }, cookingTime: 20, difficulty: 'LEVEL1', image: '', rating: 4.8, reviews: [], relatedProducts: [] },
+  { id: '3', name: '스팸마요덮밥', category: 'ETC', type: '한그릇', tags: ['간단'], allergens: ['계란', '돼지고기'], ingredients: [{ name: '스팸', amount: '100g' }, { name: '계란', amount: '2개' }, { name: '밥', amount: '1공기' }], steps: ['굽기', '올리기'], nutrition: { calories: 650, carbs: 80, protein: 25, fat: 40 }, cookingTime: 15, difficulty: 'LEVEL1', image: '', rating: 4.2, reviews: [], relatedProducts: [] },
+  { id: '4', name: '불고기', category: 'KOREAN', type: '메인반찬', tags: ['고기'], allergens: ['쇠고기'], ingredients: [{ name: '소고기', amount: '300g' }, { name: '양파', amount: '1개' }, { name: '당근', amount: '1/3개' }], steps: ['재우기', '볶기'], nutrition: { calories: 600, carbs: 20, protein: 45, fat: 30 }, cookingTime: 40, difficulty: 'LEVEL2', image: '', rating: 4.9, reviews: [], relatedProducts: [] },
+  
+  // 🌟 [테스트용] 영상 링크가 있는 레시피 (알리오올리오)
   { 
-    id: '1', name: '김치찌개', category: 'KOREAN', type: '국/찌개', tags: ['한식', '얼큰'], allergens: ['돼지고기'], 
-    ingredients: [
-        { name: '김치', normalizedName: '김치', amount: '200g', quantity: 200, unit: 'g' }, 
-        { name: '돼지고기', normalizedName: '돼지고기', amount: '100g', quantity: 100, unit: 'g' }, 
-        { name: '두부', normalizedName: '두부', amount: '1/2모', quantity: 0.5, unit: '모' }
-    ], 
-    steps: ['김치와 고기를 볶는다', '물을 넣고 끓인다', '두부와 파를 넣는다'], 
-    nutrition: { calories: 450, carbs: 20, protein: 30, fat: 25 }, cookingTime: 30, difficulty: 'LEVEL1', image: '', rating: 4.5, reviews: [], relatedProducts: [] 
+    id: '5', name: '알리오올리오', category: 'WESTERN', type: '면', tags: ['양식'], allergens: ['밀'], 
+    ingredients: [{ name: '파스타면', amount: '100g' }, { name: '마늘', amount: '5쪽' }, { name: '올리브유', amount: '3T' }], 
+    steps: ['삶기', '볶기'], nutrition: { calories: 500, carbs: 70, protein: 12, fat: 20 }, 
+    cookingTime: 20, difficulty: 'LEVEL2', image: '', 
+    videoUrl: 'https://www.youtube.com/watch?v=tMZ4pX52Z60', // 백종원 선생님 영상
+    rating: 4.0, reviews: [], relatedProducts: [] 
   },
-  // ... (다른 레시피들도 위와 같이 ingredients 구조를 { name, normalizedName, amount } 형태로 맞춰주시면 가장 좋습니다. 
-  // 현재는 호환성을 위해 기존 string 구조도 에러나지 않게 types.ts를 유연하게 짰지만, 
-  // 장기적으로는 위와 같이 normalizedName을 넣어야 냉장고 연동이 완벽해집니다.)
+
+  { id: '6', name: '잡채', category: 'KOREAN', type: '반찬', tags: ['잔치'], allergens: ['대두', '돼지고기'], ingredients: [{ name: '당면', amount: '100g' }, { name: '시금치', amount: '50g' }, { name: '돼지고기', amount: '50g' }], steps: ['삶기', '볶기', '무치기'], nutrition: { calories: 400, carbs: 60, protein: 15, fat: 15 }, cookingTime: 60, difficulty: 'LEVEL3', image: '', rating: 4.7, reviews: [], relatedProducts: [] },
+  { id: '7', name: '계란말이', category: 'KOREAN', type: '반찬', tags: ['간단'], allergens: ['난류(달걀)'], ingredients: [{ name: '계란', amount: '3개' }, { name: '대파', amount: '1/2대' }, { name: '당근', amount: '20g' }], steps: ['풀기', '말기'], nutrition: { calories: 250, carbs: 5, protein: 18, fat: 18 }, cookingTime: 15, difficulty: 'LEVEL1', image: '', rating: 4.6, reviews: [], relatedProducts: [] },
+  { id: '8', name: '떡볶이', category: 'KOREAN', type: '분식', tags: ['매콤'], allergens: ['밀', '대두'], ingredients: [{ name: '떡', amount: '200g' }, { name: '어묵', amount: '2장' }, { name: '고추장', amount: '2T' }, { name: '대파', amount: '1대' }], steps: ['끓이기'], nutrition: { calories: 550, carbs: 100, protein: 15, fat: 5 }, cookingTime: 25, difficulty: 'LEVEL2', image: '', rating: 4.8, reviews: [], relatedProducts: [] },
+  { id: '9', name: '미역국', category: 'KOREAN', type: '국/찌개', tags: ['생일', '한식'], allergens: ['쇠고기'], ingredients: [{ name: '미역', amount: '20g' }, { name: '소고기', amount: '100g' }, { name: '참기름', amount: '1T' }], steps: ['볶기', '끓이기'], nutrition: { calories: 200, carbs: 10, protein: 15, fat: 12 }, cookingTime: 40, difficulty: 'LEVEL2', image: '', rating: 4.9, reviews: [], relatedProducts: [] },
+  { id: '10', name: '스테이크', category: 'WESTERN', type: '메인반찬', tags: ['고기', '양식'], allergens: ['쇠고기'], ingredients: [{ name: '소고기', amount: '200g' }, { name: '아스파라거스', amount: '3개' }, { name: '버터', amount: '10g' }], steps: ['굽기'], nutrition: { calories: 700, carbs: 0, protein: 50, fat: 50 }, cookingTime: 20, difficulty: 'LEVEL3', image: '', rating: 4.7, reviews: [], relatedProducts: [] },
+  { id: '11', name: '카레라이스', category: 'ETC', type: '한그릇', tags: ['간단'], allergens: ['우유', '돼지고기'], ingredients: [{ name: '카레가루', amount: '1봉' }, { name: '감자', amount: '1개' }, { name: '양파', amount: '1개' }, { name: '당근', amount: '1/2개' }, { name: '돼지고기', amount: '100g' }], steps: ['볶기', '끓이기'], nutrition: { calories: 600, carbs: 80, protein: 20, fat: 20 }, cookingTime: 30, difficulty: 'LEVEL1', image: '', rating: 4.5, reviews: [], relatedProducts: [] },
+  { id: '12', name: '제육볶음', category: 'KOREAN', type: '메인반찬', tags: ['매콤', '고기'], allergens: ['돼지고기'], ingredients: [{ name: '돼지고기', amount: '300g' }, { name: '양파', amount: '1개' }, { name: '대파', amount: '1대' }, { name: '고추장', amount: '2T' }], steps: ['재우기', '볶기'], nutrition: { calories: 700, carbs: 30, protein: 40, fat: 40 }, cookingTime: 25, difficulty: 'LEVEL2', image: '', rating: 4.8, reviews: [], relatedProducts: [] },
+  { id: '13', name: '오무라이스', category: 'WESTERN', type: '한그릇', tags: ['아이들'], allergens: ['계란'], ingredients: [{ name: '밥', amount: '1공기' }, { name: '계란', amount: '2개' }, { name: '케찹', amount: '2T' }, { name: '양파', amount: '1/4개' }, { name: '당근', amount: '20g' }], steps: ['볶기', '덮기'], nutrition: { calories: 600, carbs: 90, protein: 15, fat: 20 }, cookingTime: 20, difficulty: 'LEVEL2', image: '', rating: 4.4, reviews: [], relatedProducts: [] },
+  { id: '14', name: '콩나물국', category: 'KOREAN', type: '국/찌개', tags: ['시원', '해장'], allergens: ['대두'], ingredients: [{ name: '콩나물', amount: '200g' }, { name: '대파', amount: '1/2대' }, { name: '마늘', amount: '1t' }], steps: ['끓이기'], nutrition: { calories: 100, carbs: 10, protein: 10, fat: 1 }, cookingTime: 15, difficulty: 'LEVEL1', image: '', rating: 4.3, reviews: [], relatedProducts: [] },
+  { id: '15', name: '샌드위치', category: 'WESTERN', type: '간식', tags: ['간단', '브런치'], allergens: ['밀', '계란', '우유'], ingredients: [{ name: '식빵', amount: '2장' }, { name: '계란', amount: '1개' }, { name: '양상추', amount: '2장' }, { name: '치즈', amount: '1장' }, { name: '토마토', amount: '2쪽' }], steps: ['굽기', '쌓기'], nutrition: { calories: 400, carbs: 45, protein: 15, fat: 15 }, cookingTime: 10, difficulty: 'LEVEL1', image: '', rating: 4.6, reviews: [], relatedProducts: [] },
 ];
 export const DUMMY_POSTS: Post[] = []; 
 export const TODAY_MEAL: any = {};
