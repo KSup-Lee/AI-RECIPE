@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, AlertTriangle, Wand2, RefreshCw, Layers, ShoppingCart, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, Search, X, AlertTriangle, Wand2, RefreshCw, ShoppingCart, Calendar, CheckSquare, Square } from 'lucide-react';
 import { useData } from '../App';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,6 +13,9 @@ const MealPlanPage = () => {
   const [isShoppingAnalysisOpen, setIsShoppingAnalysisOpen] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any[]>([]);
   const [analysisDays, setAnalysisDays] = useState(3);
+  
+  // 🌟 [추가] 장보기 선택 상태 관리
+  const [selectedShoppingItems, setSelectedShoppingItems] = useState<Set<string>>(new Set());
 
   const [targetType, setTargetType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER'>('BREAKFAST');
   const [search, setSearch] = useState('');
@@ -65,24 +68,45 @@ const MealPlanPage = () => {
       }
   };
 
-  // 🌟 [수정] 장보기 분석 (설정된 주기 연동)
+  // 장보기 분석 실행
   const handleAnalyzeShopping = () => {
-      // 1. 내 정보(ME) 찾기
       const me = members.find(m => m.relationship === 'ME');
-      // 2. 설정된 주기 가져오기 (없으면 기본 3일)
       const cycle = me?.shoppingCycle || 3;
       
       const needs = analyzeShoppingNeeds(dateStr, cycle);
       setAnalysisResult(needs);
       setAnalysisDays(cycle);
+      
+      // 🌟 기본적으로 모든 재료 선택 상태로 시작
+      const allNames = new Set(needs.map(item => item.name));
+      setSelectedShoppingItems(allNames);
+      
       setIsShoppingAnalysisOpen(true);
   };
 
+  // 🌟 [추가] 체크박스 토글 함수
+  const toggleShoppingItem = (name: string) => {
+      const newSet = new Set(selectedShoppingItems);
+      if (newSet.has(name)) newSet.delete(name);
+      else newSet.add(name);
+      setSelectedShoppingItems(newSet);
+  };
+
+  // 🌟 [수정] 선택된 항목만 저장
   const handleSaveShoppingList = async () => {
-      const items = analysisResult.map(item => `${item.name} (${item.dateNeeded} 필요)`);
-      await addShoppingList(items);
+      // 선택된 항목만 필터링
+      const itemsToSave = analysisResult
+          .filter(item => selectedShoppingItems.has(item.name))
+          .map(item => `${item.name} ${item.amount}${item.unit} (${item.dateNeeded} 필요)`);
+      
+      if (itemsToSave.length === 0) return alert("선택된 재료가 없습니다.");
+
+      await addShoppingList(itemsToSave);
       setIsShoppingAnalysisOpen(false);
-      navigate('/shopping');
+      
+      if(confirm(`${itemsToSave.length}개 재료를 장바구니에 담았습니다.\n장보기 목록으로 이동할까요?`)) {
+          navigate('/shopping');
+      }
   };
 
   const handleAddRecipe = (recipe: any) => {
@@ -148,7 +172,6 @@ const MealPlanPage = () => {
                 <button onClick={handleResetDay} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
                     <RefreshCw size={14} /> 초기화
                 </button>
-                {/* 🌟 [수정] 클릭 시 설정된 주기로 분석 */}
                 <button onClick={handleAnalyzeShopping} className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 text-green-600 hover:bg-green-50 transition-colors flex items-center gap-1 text-xs font-bold justify-center">
                     <ShoppingCart size={14} /> 장보기
                 </button>
@@ -217,31 +240,47 @@ const MealPlanPage = () => {
           </div>
       )}
 
+      {/* 🌟 [수정] 장보기 분석 모달 (선택 기능 추가) */}
       {isShoppingAnalysisOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5 animate-fade-in">
-              <div className="bg-white w-full max-w-sm rounded-2xl p-6 h-[70vh] flex flex-col animate-slide-up">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-6 h-[75vh] flex flex-col animate-slide-up">
                   <div className="flex justify-between items-center mb-4 shrink-0">
                       <h3 className="font-bold text-lg">🛒 장보기 분석 ({analysisDays}일)</h3>
                       <button onClick={() => setIsShoppingAnalysisOpen(false)}><X className="text-gray-400"/></button>
                   </div>
-                  <div className="flex-1 overflow-y-auto space-y-3">
+                  
+                  {/* 전체 선택 토글 */}
+                  <div className="flex justify-between items-center mb-2 px-1">
+                      <span className="text-sm text-gray-500">구매할 재료를 선택하세요</span>
+                      <button onClick={() => setSelectedShoppingItems(selectedShoppingItems.size === analysisResult.length ? new Set() : new Set(analysisResult.map(i => i.name)))} className="text-xs font-bold text-blue-500">
+                          {selectedShoppingItems.size === analysisResult.length ? '전체 해제' : '전체 선택'}
+                      </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                       {analysisResult.length === 0 ? (
-                          <div className="text-center py-10 text-gray-400">부족한 재료가 없어요! 완벽합니다 🎉</div>
+                          <div className="text-center py-10 text-gray-400">냉장고가 빵빵해요! 살 게 없네요 🎉</div>
                       ) : (
-                          analysisResult.map((item, i) => (
-                              <div key={i} className="flex justify-between items-center p-3 border rounded-xl">
-                                  <div>
-                                      <div className="font-bold text-gray-800">{item.name}</div>
-                                      <div className="text-xs text-red-500 font-bold">{item.dateNeeded} 까지 필요</div>
-                                  </div>
-                                  <div className="text-sm font-bold bg-gray-100 px-2 py-1 rounded">D-{item.dday}</div>
-                              </div>
-                          ))
+                          analysisResult.map((item, i) => {
+                              const isChecked = selectedShoppingItems.has(item.name);
+                              return (
+                                <div key={i} onClick={() => toggleShoppingItem(item.name)} className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-colors ${isChecked ? 'bg-orange-50 border-orange-200' : 'bg-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        {isChecked ? <CheckSquare className="text-[#FF6B6B]" size={20}/> : <Square className="text-gray-300" size={20}/>}
+                                        <div>
+                                            <div className={`font-bold ${isChecked ? 'text-gray-800' : 'text-gray-400'}`}>{item.name} {item.amount}{item.unit}</div>
+                                            <div className="text-xs text-red-500 font-bold">{item.dateNeeded} 사용</div>
+                                        </div>
+                                    </div>
+                                    <div className={`text-xs font-bold px-2 py-1 rounded ${item.dday <= 1 ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}>D-{item.dday}</div>
+                                </div>
+                              );
+                          })
                       )}
                   </div>
                   {analysisResult.length > 0 && (
-                      <button onClick={handleSaveShoppingList} className="w-full bg-[#FF6B6B] text-white py-3 rounded-xl font-bold mt-4 shrink-0 shadow-md">
-                          장보기 목록에 모두 담기
+                      <button onClick={handleSaveShoppingList} className="w-full bg-[#FF6B6B] text-white py-3 rounded-xl font-bold mt-4 shrink-0 shadow-md flex items-center justify-center gap-2">
+                          <ShoppingCart size={18}/> {selectedShoppingItems.size}개 장바구니 담기
                       </button>
                   )}
               </div>
